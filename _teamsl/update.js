@@ -1,7 +1,13 @@
 const axios = require("axios"); // Importing axios for making HTTP requests
-const { BasketballBundSDK } = require("basketball-bund-sdk");
 const { mail, getEmailText } = require("../_mailer/mailer"); // Importing mail and getEmailText from mailer
 const { Liga, Match, User } = require("../_models"); // Importing Liga, Match, User models
+
+// Dynamischer Import für ES6-Modul
+let BasketballBundSDK;
+(async () => {
+  const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
+  BasketballBundSDK = SDK;
+})();
 
 /**
  * This function updates the leagues data.
@@ -9,6 +15,12 @@ const { Liga, Match, User } = require("../_models"); // Importing Liga, Match, U
  * @returns {Promise} - A Promise that resolves when the leagues data is updated.
  */
 module.exports.updateLigen = async function updateLigen(index = 0) {
+  // Warten bis SDK geladen ist
+  if (!BasketballBundSDK) {
+    const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
+    BasketballBundSDK = SDK;
+  }
+  
   const sdk = new BasketballBundSDK();
   const response = await sdk.wam.getLigaList({
     akgGeschlechtIds: [],
@@ -70,6 +82,12 @@ module.exports.updateMatches = async function updateMatches() {
  * @returns {Promise} - A Promise that resolves when the match data for the league is updated.
  */
 async function updateMatch(liga) {
+  // Warten bis SDK geladen ist
+  if (!BasketballBundSDK) {
+    const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
+    BasketballBundSDK = SDK;
+  }
+  
   const sdk = new BasketballBundSDK();
   const data = await sdk.competition.getSpielplan({
     competitionId: liga.ligaId,
@@ -105,6 +123,12 @@ async function updateMatch(liga) {
  * @returns {Promise} - A Promise that resolves when the referee data for the match is updated.
  */
 async function matchRef(_m, index, max, liga) {
+  // Warten bis SDK geladen ist
+  if (!BasketballBundSDK) {
+    const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
+    BasketballBundSDK = SDK;
+  }
+  
   const sdk = new BasketballBundSDK();
   const matchInfo = await sdk.match.getMatchInfo({
     matchId: _m.matchId,
