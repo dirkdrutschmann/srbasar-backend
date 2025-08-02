@@ -20,7 +20,7 @@ module.exports.updateLigen = async function updateLigen(index = 0) {
     const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
     BasketballBundSDK = SDK;
   }
-  
+
   const sdk = new BasketballBundSDK();
   const response = await sdk.wam.getLigaList({
     akgGeschlechtIds: [],
@@ -87,7 +87,7 @@ async function updateMatch(liga) {
     const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
     BasketballBundSDK = SDK;
   }
-  
+
   const sdk = new BasketballBundSDK();
   const data = await sdk.competition.getSpielplan({
     competitionId: liga.ligaId,
@@ -128,7 +128,7 @@ async function matchRef(_m, index, max, liga) {
     const { BasketballBundSDK: SDK } = await import("basketball-bund-sdk");
     BasketballBundSDK = SDK;
   }
-  
+
   const sdk = new BasketballBundSDK();
   const matchInfo = await sdk.match.getMatchInfo({
     matchId: _m.matchId,
