@@ -74,15 +74,6 @@ const startServer = async () => {
     
     await sequelize.sync({ alter: false, force: false });
     console.log('Datenbank synchronisiert');
-    // await User.create({
-    //   id: 1,
-    //   username: 'dirkdrutschmann',
-    //   email: 'dirkdrutschmann@gmail.com',
-    //   name: 'Dirk Drutschmann',
-    //   role: 'admin',
-    //   password: 'password123',
-    //   isActive: true
-    // });
     server = app.listen(PORT, () => {
       console.log(`Server läuft auf Port ${PORT}`);
       console.log(`PM2 Instance ID: ${process.env.NODE_APP_INSTANCE || 'N/A'}`);
