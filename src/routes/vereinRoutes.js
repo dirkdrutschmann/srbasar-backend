@@ -11,6 +11,8 @@ const router = express.Router();
  *     summary: Alle Vereine abrufen
  *     description: Ruft alle Vereine mit Paginierung und Suchfunktion ab
  *     tags: [Vereine]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page

@@ -5,10 +5,12 @@ Express.js Backend mit Sequelize und SQLite für das Srbasar-System zur Verwaltu
 ## 🚀 Schnellstart
 
 ### Voraussetzungen
+
 - Node.js (Version 16 oder höher)
 - npm oder yarn
 
 ### Installation
+
 ```bash
 # Repository klonen
 git clone <repository-url>
@@ -32,38 +34,39 @@ npm start
 
 Die API-Dokumentation ist über Swagger UI verfügbar:
 
-- **Entwicklung**: http://localhost:3000/api-docs/
-- **Produktion**: https://api.srbasar.de/api-docs/
+- **Entwicklung**: [http://localhost:3000/api-docs/](http://localhost:3000/api-docs/)
+- **Produktion**: [https://api.srbasar.de/api-docs/](https://api.srbasar.de/api-docs/)
 
 ### Verfügbare Endpunkte
 
 #### Gesundheit
+
 - `GET /api/health` - System-Gesundheitsstatus
 - `GET /api/health/system` - Systeminformationen
 - `GET /api/health/database` - Datenbank-Gesundheit
 
 #### Spiele
+
 - `GET /api/spiele` - Alle Spiele abrufen (mit Paginierung und Filtern)
 - Unterstützt Filterung nach Datum, Liga, Spielfeld und globale Suche
 
 #### Benutzer
+
 - `POST /api/users/login` - Benutzer anmelden
 - `POST /api/users/forgot-password` - Passwort vergessen
 - `POST /api/users/reset-password` - Passwort zurücksetzen
 - `GET /api/users/profile` - Benutzerprofil abrufen
 - `PUT /api/users/profile` - Benutzerprofil aktualisieren
 
-#### Games (Externe API)
-- `POST /api/games/login` - Game-System Login
-- `POST /api/games/fetch-games` - Spiele von externer Quelle abrufen
-- `GET /api/games/games` - Alle gespeicherten Spiele
-- `GET /api/games/games/:id` - Spiel nach ID
-- `GET /api/games/liga/:ligaId/games` - Spiele nach Liga
-- `POST /api/games/logout` - Game-System Logout
+#### Vereine
+
+- `GET /api/vereine` - Alle Vereine abrufen (mit Paginierung und Suchfunktion) 🔐
+- `PATCH /api/vereine/:vereinId/hideLink` - hideLink für einen Verein aktualisieren (nur für Administratoren) 🔐
 
 ## 🔧 Entwicklung
 
 ### Verfügbare Scripts
+
 ```bash
 npm start          # Server starten
 npm run dev        # Entwicklungsserver mit Nodemon
@@ -73,6 +76,7 @@ npm run db:seed    # Datenbank mit Testdaten füllen
 ```
 
 ### PM2 (Produktion)
+
 ```bash
 npm run pm2:start   # PM2 starten
 npm run pm2:stop    # PM2 stoppen
@@ -87,6 +91,7 @@ npm run pm2:monit   # PM2-Monitoring
 Das System verwendet SQLite als Datenbank mit Sequelize als ORM.
 
 ### Modelle
+
 - **User** - Benutzerverwaltung
 - **Spiel** - Basketball-Spiele
 - **Verein** - Basketball-Vereine
@@ -95,13 +100,17 @@ Das System verwendet SQLite als Datenbank mit Sequelize als ORM.
 ## 📧 E-Mail-Service
 
 Integrierter E-Mail-Service mit Handlebars-Templates für:
+
 - Passwort-Reset
 - Benachrichtigungen
 
 ## 🔄 Cron-Jobs
 
 Automatisierte Aufgaben für:
-- BBN-API-Synchronisation
+
+- **W1 Cron-Job**: Läuft alle 5 Minuten zur Synchronisation der W1-Liga-Daten
+- **W3 Cron-Job**: Läuft alle 15 Minuten zur Synchronisation der W3-Liga-Daten  
+- **All Cron-Job**: Läuft alle 30 Minuten zur Synchronisation aller Liga-Daten
 - Datenbank-Wartung
 - System-Updates
 
