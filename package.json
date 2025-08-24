@@ -1,33 +1,51 @@
 {
-  "name": "spielebasar_backend",
-  "version": "0.0.1",
-  "description": "Spielebasar Backend",
-  "main": "server.js",
+  "name": "srbasar-backend",
+  "version": "1.0.0",
+  "description": "Express.js Backend mit Sequelize und SQLite",
+  "main": "src/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "serve": "nodemon server.js",
-    "run": "node server.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "spielebasar_backend"
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:delete": "pm2 delete ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "bbn:job": "node src/jobs/bbnCronJob.js",
+    "test": "jest",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:seed": "sequelize-cli db:seed:all"
   },
   "dependencies": {
-    "axios": "^1.2.2",
-    "basketball-bund-sdk": "github:dirkdrutschmann/basketball-bund-sdk",
-    "bcryptjs": "^2.4.3",
-    "body-parser": "^1.20.1",
-    "cookie-parser": "^1.4.6",
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.0",
-    "mongoose": "^6.8.2",
-    "nodemailer": "^6.8.0",
-    "path": "^0.12.7",
-    "randomstring": "^1.2.3",
-    "rootpath": "^0.1.2"
+    "handlebars": "^4.7.8",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.5",
+    "pm2": "^5.3.0",
+    "sequelize": "^6.35.0",
+    "sqlite3": "^5.1.6",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.1",
+    "sequelize-cli": "^6.6.2"
+  },
+  "keywords": [
+    "express",
+    "sequelize",
+    "sqlite",
+    "backend"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "MIT"
 }
