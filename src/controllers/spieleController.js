@@ -194,7 +194,7 @@ class SpieleController {
       const spieleMitFormatiertemDatum = spiele.map((spiel) => {
         const spielData = spiel.toJSON();
         if (spielData.spieldatum) {
-          const datum = new Date(spielData.spieldatum);
+          const datum = new Date(parseInt(spielData.spieldatum));
           spielData.datum = datum.toLocaleString("de-DE", {
             year: "numeric",
             month: "2-digit",
