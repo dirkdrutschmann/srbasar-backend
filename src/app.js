@@ -78,8 +78,8 @@ const startServer = async () => {
       console.log(`Server läuft auf Port ${PORT}`);
       console.log(`PM2 Instance ID: ${process.env.NODE_APP_INSTANCE || 'N/A'}`);
       
-      // Starte alle BBN Cron-Jobs
-      cronService.startBBNCronJobs();
+      // Starte alle TeamSL Cron-Jobs
+      cronService.startTeamSLCronJobs();
     });
   } catch (error) {
     console.error('Fehler beim Starten des Servers:', error);
@@ -91,7 +91,7 @@ const gracefulShutdown = async (signal) => {
   console.log(`\n${signal} Signal empfangen. Starte Graceful Shutdown...`);
   
   // Stoppe alle Cron-Jobs
-  cronService.stopBBNCronJobs();
+  cronService.stopTeamSLCronJobs();
   
   if (server) {
     server.close(() => {

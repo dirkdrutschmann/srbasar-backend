@@ -155,7 +155,7 @@ class CronService {
     }
   }
 
-  stopTeamSLCronJob() {
+  stopTeamSLCronJobs() {
     if (this.teamSLCronJob) {
       this.teamSLCronJob.stop();
       this.teamSLCronJob = null;
