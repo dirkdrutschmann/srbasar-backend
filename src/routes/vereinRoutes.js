@@ -6,7 +6,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/vereine:
+ * /v1/vereine:
  *   get:
  *     summary: Alle Vereine abrufen
  *     description: Ruft alle Vereine mit Paginierung und Suchfunktion ab
@@ -64,7 +64,7 @@ router.get('/', [verifyToken, isAdmin], vereinController.getAllVereine);
 
 /**
  * @swagger
- * /api/vereine/{vereinId}/hideLink:
+ * /v1/vereine/{vereinId}/hideLink:
  *   patch:
  *     summary: hideLink für einen Verein aktualisieren
  *     description: Ändert den hideLink-Status eines Vereins (nur für Administratoren)

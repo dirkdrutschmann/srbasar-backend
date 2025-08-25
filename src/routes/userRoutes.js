@@ -6,7 +6,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/users/login:
+ * /v1/users/login:
  *   post:
  *     summary: Benutzer anmelden
  *     description: Authentifiziert einen Benutzer und gibt einen JWT-Token zurück
@@ -72,7 +72,7 @@ router.post('/login', userController.login);
 
 /**
  * @swagger
- * /api/users/forgot-password:
+ * /v1/users/forgot-password:
  *   post:
  *     summary: Passwort vergessen
  *     description: Sendet einen Passwort-Reset-Token an die E-Mail-Adresse
@@ -113,7 +113,7 @@ router.post('/forgot-password', userController.forgotPassword);
 
 /**
  * @swagger
- * /api/users/reset-password:
+ * /v1/users/reset-password:
  *   post:
  *     summary: Passwort zurücksetzen
  *     description: Setzt das Passwort mit einem gültigen Reset-Token zurück
@@ -146,7 +146,7 @@ router.post('/reset-password', userController.resetPassword);
 
 /**
  * @swagger
- * /api/users/profile:
+ * /v1/users/profile:
  *   get:
  *     summary: Benutzerprofil abrufen
  *     description: Ruft das Profil des authentifizierten Benutzers ab
@@ -197,7 +197,7 @@ router.get('/profile', verifyToken, userController.getProfile);
 
 /**
  * @swagger
- * /api/users/profile:
+ * /v1/users/profile:
  *   put:
  *     summary: Benutzerprofil aktualisieren
  *     description: Aktualisiert das Profil des authentifizierten Benutzers

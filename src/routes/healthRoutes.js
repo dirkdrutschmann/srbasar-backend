@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/health:
+ * /v1/health:
  *   get:
  *     summary: System-Gesundheitsstatus abrufen
  *     description: Überprüft den allgemeinen Gesundheitsstatus des Systems
@@ -52,7 +52,7 @@ router.get('/', healthController.getHealth);
 
 /**
  * @swagger
- * /api/health/system:
+ * /v1/health/system:
  *   get:
  *     summary: Systeminformationen abrufen
  *     description: Ruft detaillierte Systeminformationen ab
@@ -82,7 +82,7 @@ router.get('/system', healthController.getSystemInfo);
 
 /**
  * @swagger
- * /api/health/database:
+ * /v1/health/database:
  *   get:
  *     summary: Datenbank-Gesundheit prüfen
  *     description: Überprüft den Verbindungsstatus zur Datenbank

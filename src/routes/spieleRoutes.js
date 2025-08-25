@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/spiele:
+ * /v1/spiele:
  *   get:
  *     summary: Alle Spiele abrufen
  *     description: Ruft alle Spiele mit Paginierung und Filtern ab, inklusive verfügbare Filter-Werte

@@ -28,10 +28,10 @@ app.use(morgan('combined'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/health', healthRoutes);
-app.use('/api/spiele', spieleRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/vereine', vereinRoutes);
+app.use('/v1/health', healthRoutes);
+app.use('/v1/spiele', spieleRoutes);
+app.use('/v1/users', userRoutes);
+app.use('/v1/vereine', vereinRoutes);
 
 // Swagger JSON
 app.get('/swagger.json', (req, res) => {
