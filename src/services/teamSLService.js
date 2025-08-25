@@ -611,4 +611,4 @@ class TeamSLService {
   }
 }
 
-module.exports = new BBNService();
+module.exports = new TeamSLService();
