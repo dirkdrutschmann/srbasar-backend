@@ -22,7 +22,7 @@ class CronService {
     } else {
       console.log('Starte W1 Cron-Job (alle 5 Minuten)...');
       
-      this.teamSLCronJobs.w1 = cron.schedule('*/5 * * * *', async () => {
+      this.teamSLCronJobs.w1 = cron.schedule('*/5 7-21 * * *', async () => {
         if (this.isRunning.w1) {
           console.log('W1 Cron-Job läuft bereits, überspringe...');
           return;
@@ -68,7 +68,7 @@ class CronService {
     } else {
       console.log('Starte W3 Cron-Job (alle 15 Minuten)...');
       
-      this.teamSLCronJobs.w3 = cron.schedule('*/15 * * * *', async () => {
+      this.teamSLCronJobs.w3 = cron.schedule('*/15 7-21 * * *', async () => {
         if (this.isRunning.w3) {
           console.log('W3 Cron-Job läuft bereits, überspringe...');
           return;
@@ -114,7 +114,7 @@ class CronService {
     } else {
       console.log('Starte All Cron-Job (jede halbe Stunde)...');
       
-      this.teamSLCronJobs.all = cron.schedule('*/30 * * * *', async () => {
+      this.teamSLCronJobs.all = cron.schedule('*/30 7-21 * * *', async () => {
         if (this.isRunning.all) {
           console.log('All Cron-Job läuft bereits, überspringe...');
           return;
@@ -157,8 +157,6 @@ class CronService {
 
   stopTeamSLCronJobs() {
     if (this.teamSLCronJob) {
-      this.teamSLCronJob.stop();
-      this.teamSLCronJob = null;
       this.isRunning = false;
       console.log('TeamSL Cron-Job gestoppt');
     }
