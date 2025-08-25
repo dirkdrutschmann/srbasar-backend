@@ -15,16 +15,6 @@ module.exports = {
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     restart_delay: 4000,
     max_restarts: 10,
-    min_uptime: '10s',
-    env: {
-      NODE_ENV: 'development',
-      PORT: 3000,
-      ALLOWED_ORIGINS: 'http://localhost:3000,http://localhost:8080,http://localhost:5173'
-    },
-    env_production: {
-      NODE_ENV: 'production',
-      PORT: 3000,
-      ALLOWED_ORIGINS: 'https://yourdomain.com,https://www.yourdomain.com'
-    }
+    min_uptime: '10s'
   }]
 };

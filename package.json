@@ -1,7 +1,7 @@
 {
   "name": "srbasar-backend",
   "version": "1.0.0",
-  "description": "Express.js Backend mit Sequelize und SQLite",
+  "description": "Express.js Backend mit Sequelize und MariaDB",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
@@ -27,11 +27,11 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "mysql2": "^3.14.3",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
     "pm2": "^5.3.0",
     "sequelize": "^6.35.0",
-    "sqlite3": "^5.1.6",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
@@ -43,7 +43,7 @@
   "keywords": [
     "express",
     "sequelize",
-    "sqlite",
+    "mariadb",
     "backend"
   ],
   "author": "",

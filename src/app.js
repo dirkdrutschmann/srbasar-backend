@@ -22,10 +22,10 @@ require('./models');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(helmet());
-
-// CORS Konfiguration mit erlaubten Origins
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()) || [];
+// CORS Konfiguration VOR Helmet
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:3000', 'http://localhost:8080', 'http://localhost:5173', 'http://localhost:5174', 'https://srbasar.de', 'https://www.srbasar.de'];
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -40,8 +40,16 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
+}));
+
+// Helmet NACH CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false // Deaktiviere CSP für API
 }));
 
 app.use(morgan('combined'));
@@ -97,6 +105,7 @@ const startServer = async () => {
     server = app.listen(PORT, () => {
       console.log(`Server läuft auf Port ${PORT}`);
       console.log(`PM2 Instance ID: ${process.env.NODE_APP_INSTANCE || 'N/A'}`);
+      console.log(`Erlaubte Origins: ${allowedOrigins.join(', ')}`);
       
       // Starte alle TeamSL Cron-Jobs
       cronService.startTeamSLCronJobs();
@@ -129,8 +138,8 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
 
 if (require.main === module) {
   startServer();
