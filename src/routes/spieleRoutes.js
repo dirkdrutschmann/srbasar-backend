@@ -28,7 +28,7 @@ const router = express.Router();
  *         name: spieldatum
  *         schema:
  *           type: integer
- *         description: Exaktes Spieldatum als Unix-Timestamp
+ *         description: Spieldatum als Unix-Timestamp (filtert nach dem ganzen Tag)
  *       - in: query
  *         name: ligaName
  *         schema:
@@ -48,7 +48,7 @@ const router = express.Router();
  *         name: sortBy
  *         schema:
  *           type: string
- *           enum: [spieldatum, ligaName, spielfeldName]
+ *           enum: [spieldatum, ligaName, spielfeldName, heimMannschaftName, gastMannschaftName, sr1VereinName, sr2VereinName]
  *           default: spieldatum
  *         description: Feld für die Sortierung
  *       - in: query

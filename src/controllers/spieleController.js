@@ -67,8 +67,20 @@ class SpieleController {
       // Filter-Objekt aufbauen
       const whereClause = {};
 
+      // Timestamp-Filter verbessern - suche nach Datum (nicht exakter Timestamp)
       if (spieldatum) {
-        whereClause.spieldatum = parseInt(spieldatum);
+        const timestamp = parseInt(spieldatum);
+        if (!isNaN(timestamp)) {
+          // Erstelle Start- und Endzeit für den ganzen Tag
+          const startOfDay = new Date(timestamp);
+          startOfDay.setHours(0, 0, 0, 0);
+          const endOfDay = new Date(timestamp);
+          endOfDay.setHours(23, 59, 59, 999);
+          
+          whereClause.spieldatum = {
+            [Op.between]: [startOfDay.getTime(), endOfDay.getTime()]
+          };
+        }
       }
 
       if (ligaName) {
@@ -85,7 +97,6 @@ class SpieleController {
 
       // Globale Suche über alle Textfelder
       if (search) {
-        // Erstelle ein separates OR-Objekt für die globale Suche
         const searchConditions = [
           { heimMannschaftName: { [Op.like]: `%${search}%` } },
           { gastMannschaftName: { [Op.like]: `%${search}%` } },
@@ -99,17 +110,23 @@ class SpieleController {
           { spielOrt: { [Op.like]: `%${search}%` } },
         ];
 
-        // Wenn globale Suche aktiv ist, überschreiben wir die spezifischen Filter
-        // da die globale Suche bereits alle Felder durchsucht
-        delete whereClause.ligaName;
-        delete whereClause.spielfeldName;
-
-        // Füge die globale Suche als AND-Bedingung hinzu
-        whereClause[Op.and] = [{ [Op.or]: searchConditions }];
+        // Globale Suche als zusätzliche Bedingung hinzufügen (nicht überschreiben)
+        whereClause[Op.and] = [
+          ...(whereClause[Op.and] || []),
+          { [Op.or]: searchConditions }
+        ];
       }
 
-      // Sortierung validieren
-      const allowedSortFields = ["spieldatum", "ligaName", "spielfeldName"];
+      // Sortierung erweitern - mehr Felder erlauben
+      const allowedSortFields = [
+        "spieldatum", 
+        "ligaName", 
+        "spielfeldName", 
+        "heimMannschaftName", 
+        "gastMannschaftName",
+        "sr1VereinName",
+        "sr2VereinName"
+      ];
       const allowedSortOrders = ["ASC", "DESC"];
 
       const finalSortBy = allowedSortFields.includes(sortBy)
