@@ -51,7 +51,7 @@ class SpieleController {
         ],
       });
 
-      // Available filters aus allen Spielen extrahieren
+      // Available filters aus allen Spielen extrahieren (ohne aktuelle Filter)
       const availableFilters = {
         spielfeldName: [
           ...new Set(allSpiele.map((s) => s.spielfeldName).filter(Boolean)),
@@ -202,6 +202,26 @@ class SpieleController {
         offset: offset,
       });
 
+      // Verfügbare Filter basierend auf den aktuellen Filtern aktualisieren
+      // Das bedeutet: Welche Optionen sind noch verfügbar, wenn die aktuellen Filter angewendet werden?
+      const updatedAvailableFilters = {
+        spielfeldName: [
+          ...new Set(spiele.map((s) => s.spielfeldName).filter(Boolean)),
+        ].sort(),
+        ligaName: [
+          ...new Set(spiele.map((s) => s.ligaName).filter(Boolean)),
+        ].sort(),
+        spieldatum: [
+          ...new Set(spiele.map((s) => s.spieldatum).filter(Boolean)),
+        ].sort((a, b) => a - b),
+      };
+
+      // Wenn keine Filter aktiv sind, verwende die ursprünglichen verfügbaren Filter
+      // Wenn Filter aktiv sind, verwende die gefilterten Optionen
+      const finalAvailableFilters = (spieldatum || ligaName || spielfeldName || search) 
+        ? updatedAvailableFilters 
+        : availableFilters;
+
       // Paginierungs-Metadaten
       const totalPages = Math.ceil(count / pageSize);
       const hasNextPage = pageNumber < totalPages;
@@ -248,7 +268,7 @@ class SpieleController {
             nextPage: hasNextPage ? pageNumber + 1 : null,
             prevPage: hasPrevPage ? pageNumber - 1 : null,
           },
-          availableFilters: availableFilters,
+          availableFilters: finalAvailableFilters,
         },
       });
     } catch (error) {
