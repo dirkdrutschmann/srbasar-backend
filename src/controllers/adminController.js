@@ -1,4 +1,5 @@
 const { User } = require('../models');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const mailerService = require('../services/mailerService');
@@ -40,7 +41,7 @@ class AdminController {
       // Prüfen ob Benutzer bereits existiert
       const existingUser = await User.findOne({
         where: {
-          $or: [
+          [Op.or]: [
             { username: username },
             { email: email }
           ]
