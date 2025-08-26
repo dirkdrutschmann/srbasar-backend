@@ -9,7 +9,7 @@ class AdminController {
   async getAllUsers(req, res) {
     try {
       const users = await User.findAll({
-        attributes: ['id', 'username', 'email', 'role', 'createdAt', 'updatedAt'],
+        attributes: ['id', 'username', 'email', 'name', 'role', 'createdAt', 'updatedAt'],
         order: [['createdAt', 'DESC']]
       });
 
@@ -28,13 +28,13 @@ class AdminController {
 
   async createUser(req, res) {
     try {
-      const { username, email, role = 'user' } = req.body;
+      const { username, email, name, role = 'user' } = req.body;
 
       // Validierung
-      if (!username || !email) {
+      if (!username || !email || !name) {
         return res.status(400).json({
           success: false,
-          message: 'Username und E-Mail sind erforderlich'
+          message: 'Username, E-Mail und Name sind erforderlich'
         });
       }
 
@@ -67,6 +67,7 @@ class AdminController {
       const newUser = await User.create({
         username,
         email,
+        name,
         password: hashedPassword,
         role,
         resetToken: resetToken,
@@ -94,6 +95,7 @@ class AdminController {
           id: newUser.id,
           username: newUser.username,
           email: newUser.email,
+          name: newUser.name,
           role: newUser.role
         }
       });
@@ -184,6 +186,7 @@ class AdminController {
           id: user.id,
           username: user.username,
           email: user.email,
+          name: user.name,
           role: user.role
         }
       });
