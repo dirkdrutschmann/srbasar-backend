@@ -59,6 +59,11 @@ const User = sequelize.define('User', {
   resetTokenExpiry: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  mustChangePassword: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false
   }
 }, {
   tableName: 'users',

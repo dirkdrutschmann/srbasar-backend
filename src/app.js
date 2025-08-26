@@ -9,6 +9,7 @@ const healthRoutes = require('./routes/healthRoutes');
 const spieleRoutes = require('./routes/spieleRoutes');
 const userRoutes = require('./routes/userRoutes');
 const vereinRoutes = require('./routes/vereinRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 const { sequelize } = require('./config/database');
 const cronService = require('./services/cronService');
 
@@ -60,6 +61,7 @@ app.use('/v1/health', healthRoutes);
 app.use('/v1/spiele', spieleRoutes);
 app.use('/v1/users', userRoutes);
 app.use('/v1/vereine', vereinRoutes);
+app.use('/v1/admin', adminRoutes);
 
 // Swagger JSON
 app.get('/swagger.json', (req, res) => {
