@@ -109,23 +109,19 @@ class MailerService {
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
     const subject = 'Willkommen bei srBasar - Passwort setzen';
     
-    const beforeButton = `
-      <p>Hallo ${username},</p>
-      <p>Ihr Account für srBasar wurde erfolgreich erstellt!</p>
-      <p><strong>Ihre Zugangsdaten:</strong></p>
-      <ul>
-        <li>Benutzername: <strong>${username}</strong></li>
-        <li>E-Mail: <strong>${email}</strong></li>
-        <li>Temporäres Passwort: <strong>${tempPassword}</strong></li>
-      </ul>
-      <p>Aus Sicherheitsgründen müssen Sie Ihr Passwort beim ersten Login ändern. Klicken Sie auf den Button unten, um ein neues Passwort zu setzen:</p>
-    `;
+    const beforeButton = `Hallo ${username},
+
+Ihr Account für srBasar wurde erfolgreich erstellt!
+
+Ihre Zugangsdaten:
+- Benutzername: ${username}
+- E-Mail: ${email}
+
+Aus Sicherheitsgründen müssen Sie Ihr Passwort setzen. Klicken Sie auf den Button unten, um ein neues Passwort zu erstellen:`;
     
-    const afterButton = `
-      <p>Alternativ können Sie sich mit Ihrem temporären Passwort anmelden und werden automatisch zur Passwort-Änderung weitergeleitet.</p>
-      <p>Der Reset-Link ist 24 Stunden gültig.</p>
-      <p>Bei Fragen wenden Sie sich gerne an das Support-Team.</p>
-    `;
+    const afterButton = `Der Reset-Link ist 24 Stunden gültig.
+
+Bei Fragen wenden Sie sich gerne an das Support-Team.`;
     
     const html = await this.generateEmailHTML(
       username,

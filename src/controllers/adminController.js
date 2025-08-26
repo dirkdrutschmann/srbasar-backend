@@ -55,9 +55,9 @@ class AdminController {
         });
       }
 
-      // Temporäres Passwort generieren
-      const tempPassword = crypto.randomBytes(12).toString('hex');
-      const hashedPassword = await bcrypt.hash(tempPassword, 10);
+      // Dummy-Passwort generieren (wird nicht verwendet, da Benutzer Passwort über Reset-Link setzt)
+      const dummyPassword = crypto.randomBytes(32).toString('hex');
+      const hashedPassword = await bcrypt.hash(dummyPassword, 10);
 
       // Reset-Token generieren
       const resetToken = crypto.randomBytes(20).toString('hex');
@@ -80,8 +80,7 @@ class AdminController {
         await mailerService.sendWelcomeEmail({
           email: email,
           username: username,
-          resetToken: resetToken,
-          tempPassword: tempPassword
+          resetToken: resetToken
         });
       } catch (emailError) {
         console.error('Fehler beim Senden der Willkommens-E-Mail:', emailError);
