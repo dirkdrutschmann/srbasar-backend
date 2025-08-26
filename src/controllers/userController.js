@@ -147,6 +147,53 @@ class UserController {
     }
   }
 
+  async validateResetToken(req, res) {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({
+          success: false,
+          error: 'Token ist erforderlich'
+        });
+      }
+
+      // Benutzer mit gültigem Reset-Token finden
+      const user = await User.findOne({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            [require('sequelize').Op.gt]: new Date()
+          },
+          isActive: true
+        }
+      });
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          error: 'Ungültiger oder abgelaufener Reset-Token'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Token ist gültig',
+        data: {
+          isValid: true,
+          email: user.email
+        }
+      });
+
+    } catch (error) {
+      console.error('Token-Validierung Fehler:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Interner Serverfehler bei der Token-Validierung'
+      });
+    }
+  }
+
   async resetPassword(req, res) {
     try {
       const { resetToken, newPassword } = req.body;
@@ -188,7 +235,7 @@ class UserController {
         await mailerService.sendPasswordChangedEmail(user.email, user.name);
       } catch (emailError) {
         console.error('Fehler beim Senden der Bestätigungs-E-Mail:', emailError);
-        // E-Mail-Fehler soll den Erfolg nicht beeinträchtigen
+          // E-Mail-Fehler soll den Erfolg nicht beeinträchtigen
       }
 
       res.json({

@@ -113,6 +113,57 @@ router.post('/forgot-password', userController.forgotPassword);
 
 /**
  * @swagger
+ * /v1/users/validate-reset-token:
+ *   post:
+ *     summary: Reset-Token validieren
+ *     description: Überprüft, ob ein Reset-Token gültig und nicht abgelaufen ist
+ *     tags: [Benutzer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Zu validierender Reset-Token
+ *     responses:
+ *       200:
+ *         description: Token ist gültig
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Token ist gültig"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     isValid:
+ *                       type: boolean
+ *                       example: true
+ *                     email:
+ *                       type: string
+ *                       example: "user@example.com"
+ *       400:
+ *         description: Fehlender Token
+ *       401:
+ *         description: Ungültiger oder abgelaufener Token
+ *       500:
+ *         description: Serverfehler
+ */
+router.post('/validate-reset-token', userController.validateResetToken);
+
+/**
+ * @swagger
  * /v1/users/reset-password:
  *   post:
  *     summary: Passwort zurücksetzen
