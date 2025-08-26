@@ -1,12 +1,12 @@
 const express = require('express');
-const { authJwt } = require('../middleware');
+const { verifyToken, isAdmin } = require('../middleware/authJwt');
 const adminController = require('../controllers/adminController');
 
 const router = express.Router();
 
 // Alle Routen erfordern Admin-Berechtigung
-router.use(authJwt.verifyToken);
-router.use(authJwt.isAdmin);
+router.use(verifyToken);
+router.use(isAdmin);
 
 // Benutzerverwaltung
 router.get('/users', adminController.getAllUsers);
