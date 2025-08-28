@@ -254,9 +254,11 @@ class SpieleController {
             hour: "2-digit",
             minute: "2-digit",
           });
-          spielData.sr1 = spielData.rawData?.sr1 !== null 
-          spielData.sr2 = spielData.rawData?.sr2 !== null 
-          spielData.sr3 = spielData.rawData?.sr3 !== null
+
+          const rawData = JSON.parse(spielData.rawData)
+          spielData.sr1 = rawData?.sr1 !== null 
+          spielData.sr2 = rawData?.sr2 !== null 
+          spielData.sr3 = rawData?.sr3 !== null
         }
         delete spielData.rawData;
         delete spielData.sr1VereinId;
