@@ -10,6 +10,7 @@ class SpieleController {
         spieldatum,
         ligaName,
         spielfeldName,
+        srLizenz,
         search,
         sortBy = "spieldatum",
         sortOrder = "ASC",
@@ -59,6 +60,9 @@ class SpieleController {
         ligaName: [
           ...new Set(allSpiele.map((s) => s.ligaName).filter(Boolean)),
         ].sort(),
+        srLizenz: [
+          ...new Set(allSpiele.map((s) => s.srLizenz).filter(Boolean)),
+        ].sort(),
         spieldatum: [
           ...new Set(allSpiele.map((s) => s.spieldatum).filter(Boolean)),
         ].sort((a, b) => a - b),
@@ -92,6 +96,12 @@ class SpieleController {
       if (spielfeldName) {
         whereClause.spielfeldName = {
           [Op.like]: `%${spielfeldName}%`,
+        };
+      }
+
+      if (srLizenz) {
+        whereClause.srLizenz = {
+          [Op.like]: `%${srLizenz}%`,
         };
       }
 
@@ -211,6 +221,9 @@ class SpieleController {
         ligaName: [
           ...new Set(spiele.map((s) => s.ligaName).filter(Boolean)),
         ].sort(),
+        srLizenz: [
+          ...new Set(spiele.map((s) => s.srLizenz).filter(Boolean)),
+        ].sort(),
         spieldatum: [
           ...new Set(spiele.map((s) => s.spieldatum).filter(Boolean)),
         ].sort((a, b) => a - b),
@@ -218,7 +231,7 @@ class SpieleController {
 
       // Wenn keine Filter aktiv sind, verwende die ursprünglichen verfügbaren Filter
       // Wenn Filter aktiv sind, verwende die gefilterten Optionen
-      const finalAvailableFilters = (spieldatum || ligaName || spielfeldName || search) 
+      const finalAvailableFilters = (spieldatum || ligaName || spielfeldName || srLizenz || search) 
         ? updatedAvailableFilters 
         : availableFilters;
 
@@ -241,6 +254,9 @@ class SpieleController {
             hour: "2-digit",
             minute: "2-digit",
           });
+          spielData.sr1 = spielData.rawData?.sp?.sr1 !== null 
+          spielData.sr2 = spielData.rawData?.sp?.sr2 !== null 
+          spielData.sr3 = spielData.rawData?.sp?.sr3 !== null
         }
         delete spielData.rawData;
         delete spielData.sr1VereinId;

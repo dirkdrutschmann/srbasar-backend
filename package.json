@@ -13,6 +13,7 @@
     "pm2:logs": "pm2 logs",
     "pm2:monit": "pm2 monit",
     "bbn:job": "node src/jobs/bbnCronJob.js",
+    "cron": "node src/jobs/cronRunner.js all",
     "test": "jest",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all"

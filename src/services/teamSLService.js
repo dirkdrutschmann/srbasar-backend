@@ -1,6 +1,7 @@
 const axios = require("axios");
 const { Spiel, Verein, SrQualifikation } = require("../models");
 const { Op } = require("sequelize");
+const { fieldFn } = require("../utils/licenseUtils");
 
 class TeamSLService {
   constructor() {
@@ -514,7 +515,11 @@ class TeamSLService {
             if (created) savedSrQualifikationen++;
           }
 
-          // 4. Spiel speichern/aktualisieren
+          // 4. SR-Lizenz berechnen
+          const ligaName = gameData.sp.liga?.liganame || "";
+          const srLizenz = fieldFn({ liganame: ligaName });
+
+          // 5. Spiel speichern/aktualisieren
           const [spiel, created] = await Spiel.findOrCreate({
             where: { spielplanId: gameData.sp.spielplanId },
             defaults: {
@@ -525,12 +530,13 @@ class TeamSLService {
                 gameData.sp.heimMannschaftLiga?.mannschaftName || "",
               gastMannschaftName:
                 gameData.sp.gastMannschaftLiga?.mannschaftName || "",
-              ligaName: gameData.sp.liga?.liganame || "",
+              ligaName: ligaName,
               spielfeldName: gameData.sp.spielfeld?.bezeichnung || "",
               spielStrasse: gameData.sp.spielfeld?.strasse || "",
               spielPlz: gameData.sp.spielfeld?.plz || "",
               spielOrt: gameData.sp.spielfeld?.ort || "",
               srQualifikationId: srQualifikationId,
+              srLizenz: srLizenz,
               sr1OffenAngeboten: gameData.sr1OffenAngeboten || false,
               sr2OffenAngeboten: gameData.sr2OffenAngeboten || false,
               sr3OffenAngeboten: gameData.sr3OffenAngeboten || false,
@@ -554,12 +560,13 @@ class TeamSLService {
                 gameData.sp.heimMannschaftLiga?.mannschaftName || "",
               gastMannschaftName:
                 gameData.sp.gastMannschaftLiga?.mannschaftName || "",
-              ligaName: gameData.sp.liga?.liganame || "",
+              ligaName: ligaName,
               spielfeldName: gameData.sp.spielfeld?.bezeichnung || "",
               spielStrasse: gameData.sp.spielfeld?.strasse || "",
               spielPlz: gameData.sp.spielfeld?.plz || "",
               spielOrt: gameData.sp.spielfeld?.ort || "",
               srQualifikationId: srQualifikationId,
+              srLizenz: srLizenz,
               sr1OffenAngeboten: gameData.sr1OffenAngeboten || false,
               sr2OffenAngeboten: gameData.sr2OffenAngeboten || false,
               sr3OffenAngeboten: gameData.sr3OffenAngeboten || false,

@@ -71,6 +71,12 @@ const Spiel = sequelize.define('Spiel', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  srLizenz: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: 'LSE',
+    comment: 'Benötigte SR-Lizenz: LSE, LSE+, LSD oder Kombinationen'
+  },
   rawData: {
     type: DataTypes.JSON,
     allowNull: false,
