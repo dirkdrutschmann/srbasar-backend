@@ -254,9 +254,9 @@ class SpieleController {
             hour: "2-digit",
             minute: "2-digit",
           });
-          spielData.sr1 = spielData.rawData?.sp?.sr1 !== null 
-          spielData.sr2 = spielData.rawData?.sp?.sr2 !== null 
-          spielData.sr3 = spielData.rawData?.sp?.sr3 !== null
+          spielData.sr1 = spielData.rawData?.sr1 !== null 
+          spielData.sr2 = spielData.rawData?.sr2 !== null 
+          spielData.sr3 = spielData.rawData?.sr3 !== null
         }
         delete spielData.rawData;
         delete spielData.sr1VereinId;
