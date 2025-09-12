@@ -524,8 +524,8 @@ class TeamSLService {
             where: { spielplanId: gameData.sp.spielplanId },
             defaults: {
               spieldatum: gameData.sp.spieldatum,
-              heimVereinId: gameData.sp.sr1Verein?.vereinId || 0,
-              gastVereinId: gameData.sp.sr2Verein?.vereinId || 0,
+              heimVereinId: gameData.sp.sr1Verein?.vereinId || null,
+              gastVereinId: gameData.sp.sr2Verein?.vereinId || null,
               heimMannschaftName:
                 gameData.sp.heimMannschaftLiga?.mannschaftName || "",
               gastMannschaftName:

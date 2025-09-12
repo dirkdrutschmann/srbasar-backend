@@ -13,11 +13,11 @@ const Spiel = sequelize.define('Spiel', {
   },
   heimVereinId: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   },
   gastVereinId: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true
   },
   heimMannschaftName: {
     type: DataTypes.STRING,
