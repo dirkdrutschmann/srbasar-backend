@@ -245,15 +245,17 @@ class SpieleController {
         const spielData = spiel.toJSON();
         if (spielData.spieldatum) {
           const datum = new Date(parseInt(spielData.spieldatum));
-          spielData.datum = datum.toLocaleString("de-DE", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-          });
-          spielData.zeit = datum.toLocaleString("de-DE", {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+           spielData.datum = datum.toLocaleString("de-DE", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              timeZone: "Europe/Berlin",
+                });
+            spielData.zeit = datum.toLocaleString("de-DE", {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Europe/Berlin",
+            });
 
           const rawData = JSON.parse(spielData.rawData)
           spielData.sr1 = rawData?.sr1 !== null 
