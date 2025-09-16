@@ -495,9 +495,6 @@ class TeamSLService {
               },
               force: true,
             });
-            console.log(
-              `Spiel ${gameData.sp.spielplanId} wird übersprungen - nicht offen angeboten`
-            );
             skippedReasons.notOffered++;
             skippedGames++;
             continue;
