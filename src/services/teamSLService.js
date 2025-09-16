@@ -174,13 +174,14 @@ class TeamSLService {
         const batch = [];
 
         for (let page = batchStart; page < batchEnd; page++) {
-          batch.push(this.fetchOpenGames(page, pageSize));
+          const pageFrom = page * pageSize;
+          batch.push(this.fetchOpenGames(pageFrom, pageSize));
         }
 
         console.log(
           `Verarbeite Batch ${
             Math.floor(batchStart / batchSize) + 1
-          }: Seiten ${batchStart}-${batchEnd - 1}`
+          }: Seiten ${batchStart + 1}-${batchEnd} (pageFrom: ${batchStart * pageSize}-${(batchEnd - 1) * pageSize + pageSize - 1})`
         );
 
         try {
@@ -192,7 +193,7 @@ class TeamSLService {
                 allGames.add(JSON.stringify(game))
               );
               console.log(
-                `Seite ${batchStart + index}: ${
+                `Seite ${batchStart + index + 1}: ${
                   pageData.results.length
                 } Spiele geladen`
               );
@@ -224,11 +225,22 @@ class TeamSLService {
         `Alle Spiele erfolgreich geladen: ${results.length} von ${totalGames}`
       );
 
+      // Validierung: Prüfe ob alle Spiele abgerufen wurden
+      if (results.length !== totalGames) {
+        console.warn(`⚠️  Mismatch: ${results.length} Spiele geladen, aber ${totalGames} erwartet`);
+        console.warn(`Mögliche Ursachen:`);
+        console.warn(`- Doppelte Spiele in der API`);
+        console.warn(`- Fehler beim Abrufen einzelner Seiten`);
+        console.warn(`- API liefert inkonsistente Daten`);
+      }
+
       return {
         total: totalGames,
         results: results,
         pages: totalPages,
         pageSize: pageSize,
+        actualCount: results.length,
+        complete: results.length === totalGames
       };
     } catch (error) {
       console.error("Fehler beim Abrufen aller offenen Spiele:", error.message);
