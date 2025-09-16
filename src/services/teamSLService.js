@@ -326,6 +326,40 @@ class TeamSLService {
     }
   }
 
+  async validateGameProcessing(gamesData) {
+    try {
+      const totalGames = gamesData.length;
+      const processedGames = await Spiel.count({
+        where: {
+          spielplanId: {
+            [Op.in]: gamesData.map(game => game.sp.spielplanId)
+          }
+        }
+      });
+      
+      const openGames = await Spiel.count({
+        where: {
+          [Op.or]: [
+            { sr1OffenAngeboten: true },
+            { sr2OffenAngeboten: true },
+            { sr3OffenAngeboten: true }
+          ]
+        }
+      });
+
+      return {
+        totalGamesFromAPI: totalGames,
+        gamesInDatabase: processedGames,
+        openGamesInDatabase: openGames,
+        processingComplete: processedGames === totalGames,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error("Fehler bei der Validierung der Spielverarbeitung:", error.message);
+      throw error;
+    }
+  }
+
   async orphanRemoval(gamesData) {
     try {
       console.log("Leere alle Tabellen...");
@@ -360,10 +394,14 @@ class TeamSLService {
   async saveGamesToDatabase(gamesData, zeitraum) {
     try {
       console.log("Starte Transaktion für Spieldaten...");
+      console.log(`Verarbeite ${gamesData.length} Spiele...`);
 
       let savedGames = 0;
+      let updatedGames = 0;
+      let skippedGames = 0;
       let savedVereine = 0;
       let savedSrQualifikationen = 0;
+      let errors = [];
 
       for (const gameData of gamesData) {
         try {
@@ -553,9 +591,9 @@ class TeamSLService {
           if (!created) {
             // Update bestehenden Eintrag
             await spiel.update({
-              spieldatum: gameData.spieldatum,
-              heimVereinId: gameData.sp.sr1Verein?.vereinId || 0,
-              gastVereinId: gameData.sp.sr2Verein?.vereinId || 0,
+              spieldatum: gameData.sp.spieldatum,
+              heimVereinId: gameData.sp.sr1Verein?.vereinId || null,
+              gastVereinId: gameData.sp.sr2Verein?.vereinId || null,
               heimMannschaftName:
                 gameData.sp.heimMannschaftLiga?.mannschaftName || "",
               gastMannschaftName:
@@ -580,22 +618,47 @@ class TeamSLService {
             });
           }
 
-          if (created) savedGames++;
+          if (created) {
+            savedGames++;
+          } else {
+            updatedGames++;
+          }
         } catch (error) {
           console.error(
             `Fehler beim Speichern von Spiel ${gameData.sp.spielplanId}:`,
             error.message
           );
-          throw error; // Fehler weiterwerfen, um Transaktion abzubrechen
+          errors.push({
+            spielplanId: gameData.sp.spielplanId,
+            error: error.message
+          });
+          // Fehler sammeln statt Transaktion abzubrechen
         }
       }
 
       console.log(`Datenbank-Update abgeschlossen:`);
       console.log(`- ${savedGames} neue Spiele gespeichert`);
+      console.log(`- ${updatedGames} Spiele aktualisiert`);
+      console.log(`- ${skippedGames} Spiele übersprungen`);
       console.log(`- ${savedVereine} neue Vereine gespeichert`);
       console.log(
         `- ${savedSrQualifikationen} neue SR-Qualifikationen gespeichert`
       );
+      
+      if (errors.length > 0) {
+        console.warn(`⚠️  ${errors.length} Fehler aufgetreten:`);
+        errors.forEach(err => {
+          console.warn(`  - Spiel ${err.spielplanId}: ${err.error}`);
+        });
+      }
+
+      // Validierung: Prüfe ob alle Spiele verarbeitet wurden
+      const expectedGames = gamesData.length;
+      const processedGames = savedGames + updatedGames + skippedGames;
+      
+      if (processedGames !== expectedGames) {
+        console.warn(`⚠️  Verarbeitungsmismatch: ${processedGames}/${expectedGames} Spiele verarbeitet`);
+      }
 
       if (zeitraum === "all") {
         await this.orphanRemoval(gamesData);
@@ -603,8 +666,13 @@ class TeamSLService {
 
       return {
         savedGames,
+        updatedGames,
+        skippedGames,
         savedVereine,
         savedSrQualifikationen,
+        errors,
+        totalProcessed: savedGames + updatedGames + skippedGames,
+        success: errors.length === 0
       };
     } catch (error) {
       // Transaktion bei Fehler rückgängig machen
