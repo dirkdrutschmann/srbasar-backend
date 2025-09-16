@@ -147,11 +147,9 @@ class TeamSLService {
 
       // Alle Seiten sequenziell abrufen bis keine Spiele mehr kommen
       while (hasMorePages) {
-        const pageFrom = page * pageSize;
-        
         try {
-          console.log(`Lade Seite ${page + 1} (pageFrom: ${pageFrom})...`);
-          const pageData = await this.fetchOpenGames(pageFrom, pageSize, zeitraum);
+          console.log(`Lade Seite ${page + 1} (pageFrom: ${page})...`);
+          const pageData = await this.fetchOpenGames(page, pageSize, zeitraum);
           
           // Bei der ersten Seite die Gesamtanzahl ermitteln
           if (page === 0) {
