@@ -168,6 +168,7 @@ class TeamSLService {
           gameIds.add(game.sp.spielplanId);
         });
         console.log(`Erste Seite: ${firstPage.results.length} Spiele geladen`);
+        console.log(`Gesamt nach Seite 1: ${allGames.size}/${totalGames} Spiele`);
       }
 
       // Berechne wie viele Seiten wir brauchen (immer 100 pro Seite)
@@ -196,20 +197,34 @@ class TeamSLService {
           
           let newGamesInBatch = 0;
           batchResults.forEach((pageData, index) => {
+            const pageNumber = batchStart + index;
             if (pageData.results && pageData.results.length > 0) {
+              let newGamesOnPage = 0;
+              let duplicatesOnPage = 0;
+              
               pageData.results.forEach((game) => {
                 const gameId = game.sp.spielplanId;
                 if (!gameIds.has(gameId)) {
                   allGames.add(JSON.stringify(game));
                   gameIds.add(gameId);
+                  newGamesOnPage++;
                   newGamesInBatch++;
+                } else {
+                  duplicatesOnPage++;
                 }
               });
+              
+              console.log(`  Seite ${pageNumber}: ${pageData.results.length} Spiele, ${newGamesOnPage} neue, ${duplicatesOnPage} Duplikate`);
               pagesLoaded++;
+            } else {
+              console.log(`  Seite ${pageNumber}: Keine Spiele gefunden`);
             }
           });
           
-          console.log(`Batch abgeschlossen: ${newGamesInBatch} neue Spiele, ${allGames.size}/${totalGames} gesamt`);
+          const totalAfterBatch = allGames.size;
+          const expectedAfterBatch = Math.min((batchEnd) * pageSize, totalGames);
+          console.log(`Batch abgeschlossen: ${newGamesInBatch} neue Spiele, ${totalAfterBatch}/${totalGames} gesamt (Seiten 1-${batchEnd})`);
+          console.log(`Erwartet nach ${batchEnd} Seiten: ${expectedAfterBatch}, tatsächlich: ${totalAfterBatch}`);
           
           // Prüfe ob wir alle Spiele haben
           if (allGames.size >= totalGames) {
