@@ -442,6 +442,13 @@ class TeamSLService {
       let savedVereine = 0;
       let savedSrQualifikationen = 0;
       let errors = [];
+      let skippedReasons = {
+        notOffered: 0,
+        bothVereinsHideLink: 0,
+        heimVereinNotFound: 0,
+        gastVereinNotFound: 0,
+        processingError: 0
+      };
 
       for (const gameData of gamesData) {
         try {
@@ -464,6 +471,8 @@ class TeamSLService {
             console.log(
               `Spiel ${gameData.sp.spielplanId} wird übersprungen - nicht offen angeboten`
             );
+            skippedReasons.notOffered++;
+            skippedGames++;
             continue;
           }
 
@@ -535,6 +544,8 @@ class TeamSLService {
             console.log(
               `Spiel ${gameData.sp.spielplanId} wird übersprungen - beide Vereine haben hideLink gesetzt`
             );
+            skippedReasons.bothVereinsHideLink++;
+            skippedGames++;
             continue;
           }
           if (!heimVerein && gastVerein.hideLink) {
@@ -549,6 +560,8 @@ class TeamSLService {
             console.log(
               `Spiel ${gameData.sp.spielplanId} wird übersprungen - Heimverein nicht gefunden`
             );
+            skippedReasons.heimVereinNotFound++;
+            skippedGames++;
             continue;
           }
           if (!gastVerein && heimVerein.hideLink) {
@@ -563,6 +576,8 @@ class TeamSLService {
             console.log(
               `Spiel ${gameData.sp.spielplanId} wird übersprungen - Gastverein nicht gefunden`
             );
+            skippedReasons.gastVereinNotFound++;
+            skippedGames++;
             continue;
           }
 
@@ -672,6 +687,8 @@ class TeamSLService {
             spielplanId: gameData.sp.spielplanId,
             error: error.message
           });
+          skippedReasons.processingError++;
+          skippedGames++;
           // Fehler sammeln statt Transaktion abzubrechen
         }
       }
@@ -684,6 +701,14 @@ class TeamSLService {
       console.log(
         `- ${savedSrQualifikationen} neue SR-Qualifikationen gespeichert`
       );
+      
+      // Detaillierte Übersicht der übersprungenen Spiele
+      console.log(`\n📊 Übersprungene Spiele - Details:`);
+      console.log(`- Nicht offen angeboten: ${skippedReasons.notOffered}`);
+      console.log(`- Beide Vereine hideLink: ${skippedReasons.bothVereinsHideLink}`);
+      console.log(`- Heimverein nicht gefunden: ${skippedReasons.heimVereinNotFound}`);
+      console.log(`- Gastverein nicht gefunden: ${skippedReasons.gastVereinNotFound}`);
+      console.log(`- Verarbeitungsfehler: ${skippedReasons.processingError}`);
       
       if (errors.length > 0) {
         console.warn(`⚠️  ${errors.length} Fehler aufgetreten:`);
@@ -711,6 +736,7 @@ class TeamSLService {
         savedVereine,
         savedSrQualifikationen,
         errors,
+        skippedReasons,
         totalProcessed: savedGames + updatedGames + skippedGames,
         success: errors.length === 0
       };
