@@ -137,111 +137,137 @@ class TeamSLService {
         throw new Error("Nicht eingeloggt. Bitte zuerst login() aufrufen.");
       }
 
-      console.log("Starte sequenzielle Abfrage aller offenen Spiele...");
+      console.log("Starte adaptive parallele Abfrage aller offenen Spiele...");
+
+      // 1. Erste Seite abrufen um die Gesamtanzahl zu erhalten
+      console.log("Lade erste Seite um Gesamtanzahl zu ermitteln...");
+      const firstPage = await this.fetchOpenGames(0, pageSize, zeitraum);
+      const totalGames = firstPage.total || 0;
+      
+      console.log(`API meldet ${totalGames} Spiele insgesamt`);
+
+      if (totalGames === 0) {
+        return {
+          total: 0,
+          results: [],
+          pages: 0,
+          pageSize: pageSize,
+          actualCount: 0,
+          complete: true,
+          apiReportedTotal: 0
+        };
+      }
 
       const allGames = new Set();
       const gameIds = new Set();
-      let page = 0;
-      let totalGames = 0;
-      let hasMorePages = true;
+      
+      // Erste Seite bereits laden
+      if (firstPage.results) {
+        firstPage.results.forEach((game) => {
+          allGames.add(JSON.stringify(game));
+          gameIds.add(game.sp.spielplanId);
+        });
+        console.log(`Erste Seite: ${firstPage.results.length} Spiele geladen`);
+      }
 
-      // Alle Seiten sequenziell abrufen bis keine Spiele mehr kommen
-      while (hasMorePages) {
-        try {
-          console.log(`Lade Seite ${page + 1} (pageFrom: ${page})...`);
-          const pageData = await this.fetchOpenGames(page, pageSize, zeitraum);
+      // Adaptive Strategie: Versuche verschiedene pageSize-Werte
+      const pageSizes = [100, 50, 20, 10];
+      let currentPageSize = pageSize;
+      let maxAttempts = 5;
+      let attempt = 0;
+
+      while (allGames.size < totalGames && attempt < maxAttempts) {
+        attempt++;
+        console.log(`\n--- Versuch ${attempt}/${maxAttempts} mit pageSize=${currentPageSize} ---`);
+        
+        // Berechne wie viele Seiten wir brauchen
+        const estimatedPages = Math.ceil(totalGames / currentPageSize);
+        const pagesToFetch = Math.min(estimatedPages, 50); // Maximal 50 Seiten pro Versuch
+        
+        console.log(`Lade ${pagesToFetch} Seiten parallel (pageSize=${currentPageSize})...`);
+        
+        // 10 Seiten parallel abrufen
+        const batchSize = 10;
+        let pagesLoaded = 0;
+        
+        for (let batchStart = 1; batchStart <= pagesToFetch; batchStart += batchSize) {
+          const batchEnd = Math.min(batchStart + batchSize - 1, pagesToFetch);
+          const batch = [];
           
-          // Bei der ersten Seite die Gesamtanzahl ermitteln
-          if (page === 0) {
-            totalGames = pageData.total || 0;
-            console.log(`API meldet ${totalGames} Spiele insgesamt`);
+          // Batch von Seiten vorbereiten
+          for (let page = batchStart; page <= batchEnd; page++) {
+            batch.push(this.fetchOpenGames(page, currentPageSize, zeitraum));
           }
           
-          if (pageData.results && pageData.results.length > 0) {
-            let newGames = 0;
-            let duplicateGames = 0;
+          console.log(`Lade Batch: Seiten ${batchStart}-${batchEnd}...`);
+          
+          try {
+            const batchResults = await Promise.all(batch);
             
-            pageData.results.forEach((game) => {
-              const gameId = game.sp.spielplanId;
-              if (!gameIds.has(gameId)) {
-                allGames.add(JSON.stringify(game));
-                gameIds.add(gameId);
-                newGames++;
-              } else {
-                duplicateGames++;
+            let newGamesInBatch = 0;
+            batchResults.forEach((pageData, index) => {
+              if (pageData.results && pageData.results.length > 0) {
+                pageData.results.forEach((game) => {
+                  const gameId = game.sp.spielplanId;
+                  if (!gameIds.has(gameId)) {
+                    allGames.add(JSON.stringify(game));
+                    gameIds.add(gameId);
+                    newGamesInBatch++;
+                  }
+                });
+                pagesLoaded++;
               }
             });
             
-            console.log(
-              `Seite ${page + 1}: ${pageData.results.length} Spiele abgerufen, ${newGames} neue, ${duplicateGames} Duplikate`
-            );
-            console.log(
-              `Gesamt: ${allGames.size} Spiele geladen (${gameIds.size} einzigartige IDs)`
-            );
+            console.log(`Batch abgeschlossen: ${newGamesInBatch} neue Spiele, ${allGames.size}/${totalGames} gesamt`);
             
-            // Prüfe ob noch mehr Seiten kommen könnten
-            // Stoppe wenn weniger neue Spiele als pageSize gefunden wurden
-            if (newGames < pageSize) {
-              hasMorePages = false;
-              console.log(`Letzte Seite erreicht (${newGames} neue Spiele < ${pageSize})`);
+            // Prüfe ob wir alle Spiele haben
+            if (allGames.size >= totalGames) {
+              console.log(`✅ Alle ${totalGames} Spiele gefunden!`);
+              break;
             }
             
-            // Zusätzlich stoppen wenn alle Spiele Duplikate sind
-            if (newGames === 0 && pageData.results.length > 0) {
-              hasMorePages = false;
-              console.log(`Letzte Seite erreicht (alle ${pageData.results.length} Spiele sind Duplikate)`);
-            }
-          } else {
-            hasMorePages = false;
-            console.log(`Seite ${page + 1}: Keine Spiele gefunden - Ende erreicht`);
+          } catch (error) {
+            console.error(`Fehler in Batch ${Math.floor(batchStart / batchSize) + 1}:`, error.message);
           }
           
-          page++;
-          
-          // Kleine Pause zwischen den Seiten
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          
-        } catch (error) {
-          console.error(`Fehler beim Laden von Seite ${page + 1}:`, error.message);
-          hasMorePages = false; // Bei Fehler stoppen
+          // Kleine Pause zwischen Batches
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        
+        console.log(`Versuch ${attempt} abgeschlossen: ${allGames.size}/${totalGames} Spiele (${pagesLoaded} Seiten geladen)`);
+        
+        // Wenn wir nicht alle Spiele haben, reduziere pageSize für nächsten Versuch
+        if (allGames.size < totalGames && attempt < maxAttempts) {
+          const nextPageSizeIndex = pageSizes.indexOf(currentPageSize) + 1;
+          if (nextPageSizeIndex < pageSizes.length) {
+            currentPageSize = pageSizes[nextPageSizeIndex];
+            console.log(`Reduziere pageSize auf ${currentPageSize} für nächsten Versuch`);
+          }
         }
       }
 
-      // Set zurück zu Array konvertieren und parsen
-      const results = Array.from(allGames).map((gameStr) =>
-        JSON.parse(gameStr)
-      );
+      // Set zurück zu Array konvertieren
+      const results = Array.from(allGames).map((gameStr) => JSON.parse(gameStr));
 
-      const actualPages = page;
-      console.log(
-        `Alle Spiele erfolgreich geladen: ${results.length} Spiele in ${actualPages} Seiten`
-      );
+      console.log(`\n=== Abfrage abgeschlossen ===`);
+      console.log(`Geladene Spiele: ${results.length}/${totalGames}`);
+      console.log(`Einzigartige IDs: ${gameIds.size}`);
+      console.log(`Versuch: ${attempt}/${maxAttempts}`);
 
-      // Validierung: Prüfe ob alle Spiele abgerufen wurden
-      if (totalGames > 0 && results.length !== totalGames) {
-        console.warn(`⚠️  Mismatch: ${results.length} Spiele geladen, aber API meldete ${totalGames} Spiele`);
-        console.warn(`Einzigartige Spiel-IDs: ${gameIds.size}`);
-        console.warn(`Mögliche Ursachen:`);
-        console.warn(`- Doppelte Spiele in der API`);
-        console.warn(`- API liefert inkonsistente Daten`);
-        console.warn(`- Seitenüberschneidungen`);
-        
-        // Debug: Zeige erste paar Spiel-IDs
-        const sampleIds = Array.from(gameIds).slice(0, 5);
-        console.warn(`Beispiel Spiel-IDs: ${sampleIds.join(', ')}`);
-      } else if (totalGames === 0) {
-        console.log(`API meldete keine Spiele, aber ${results.length} Spiele gefunden`);
+      if (results.length !== totalGames) {
+        console.warn(`⚠️  Nicht alle Spiele abgerufen: ${results.length}/${totalGames}`);
       } else {
         console.log(`✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
       }
 
       return {
-        total: results.length, // Tatsächliche Anzahl der geladenen Spiele
+        total: results.length,
         results: results,
-        pages: actualPages,
-        pageSize: pageSize,
+        pages: attempt,
+        pageSize: currentPageSize,
         actualCount: results.length,
-        complete: true, // Da wir alle verfügbaren Seiten abgerufen haben
+        complete: results.length >= totalGames,
         apiReportedTotal: totalGames
       };
     } catch (error) {
