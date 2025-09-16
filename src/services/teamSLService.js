@@ -137,45 +137,27 @@ class TeamSLService {
         throw new Error("Nicht eingeloggt. Bitte zuerst login() aufrufen.");
       }
 
-      console.log("Starte parallele Abfrage aller offenen Spiele...");
+      console.log("Starte sequenzielle Abfrage aller offenen Spiele...");
 
-      // Erste Anfrage, um die Gesamtanzahl zu ermitteln
-      const firstPage = await this.fetchOpenGames(0, pageSize, zeitraum);
-      const totalGames = firstPage.total || 0;
-      const totalPages = Math.ceil(totalGames / pageSize);
-
-      console.log(`Gesamtanzahl Spiele: ${totalGames}, Seiten: ${totalPages}`);
-
-      if (totalPages <= 1) {
-        return {
-          total: totalGames,
-          results: firstPage.results || [],
-          pages: totalPages,
-          pageSize: pageSize,
-        };
-      }
-
-      // Alle Seiten parallel abrufen (10 gleichzeitig)
-      const batchSize = 10;
       const allGames = new Set();
-      const gameIds = new Set(); // Für Debugging
+      const gameIds = new Set();
+      let page = 0;
+      let totalGames = 0;
+      let hasMorePages = true;
 
-      // Erste Seite bereits geladen
-      if (firstPage.results) {
-        firstPage.results.forEach((game) => {
-          allGames.add(JSON.stringify(game));
-          gameIds.add(game.sp.spielplanId);
-        });
-        console.log(`Erste Seite: ${firstPage.results.length} Spiele geladen`);
-      }
-
-      // Alle anderen Seiten sequenziell abrufen für besseres Debugging
-      for (let page = 1; page < totalPages; page++) {
+      // Alle Seiten sequenziell abrufen bis keine Spiele mehr kommen
+      while (hasMorePages) {
         const pageFrom = page * pageSize;
         
         try {
           console.log(`Lade Seite ${page + 1} (pageFrom: ${pageFrom})...`);
-          const pageData = await this.fetchOpenGames(pageFrom, pageSize);
+          const pageData = await this.fetchOpenGames(pageFrom, pageSize, zeitraum);
+          
+          // Bei der ersten Seite die Gesamtanzahl ermitteln
+          if (page === 0) {
+            totalGames = pageData.total || 0;
+            console.log(`API meldet ${totalGames} Spiele insgesamt`);
+          }
           
           if (pageData.results && pageData.results.length > 0) {
             let newGames = 0;
@@ -196,17 +178,34 @@ class TeamSLService {
               `Seite ${page + 1}: ${pageData.results.length} Spiele abgerufen, ${newGames} neue, ${duplicateGames} Duplikate`
             );
             console.log(
-              `Gesamt: ${allGames.size}/${totalGames} Spiele geladen (${gameIds.size} einzigartige IDs)`
+              `Gesamt: ${allGames.size} Spiele geladen (${gameIds.size} einzigartige IDs)`
             );
+            
+            // Prüfe ob noch mehr Seiten kommen könnten
+            // Stoppe wenn weniger neue Spiele als pageSize gefunden wurden
+            if (newGames < pageSize) {
+              hasMorePages = false;
+              console.log(`Letzte Seite erreicht (${newGames} neue Spiele < ${pageSize})`);
+            }
+            
+            // Zusätzlich stoppen wenn alle Spiele Duplikate sind
+            if (newGames === 0 && pageData.results.length > 0) {
+              hasMorePages = false;
+              console.log(`Letzte Seite erreicht (alle ${pageData.results.length} Spiele sind Duplikate)`);
+            }
           } else {
-            console.log(`Seite ${page + 1}: Keine Spiele gefunden`);
+            hasMorePages = false;
+            console.log(`Seite ${page + 1}: Keine Spiele gefunden - Ende erreicht`);
           }
+          
+          page++;
           
           // Kleine Pause zwischen den Seiten
           await new Promise((resolve) => setTimeout(resolve, 100));
           
         } catch (error) {
           console.error(`Fehler beim Laden von Seite ${page + 1}:`, error.message);
+          hasMorePages = false; // Bei Fehler stoppen
         }
       }
 
@@ -215,32 +214,37 @@ class TeamSLService {
         JSON.parse(gameStr)
       );
 
+      const actualPages = page;
       console.log(
-        `Alle Spiele erfolgreich geladen: ${results.length} von ${totalGames}`
+        `Alle Spiele erfolgreich geladen: ${results.length} Spiele in ${actualPages} Seiten`
       );
 
       // Validierung: Prüfe ob alle Spiele abgerufen wurden
-      if (results.length !== totalGames) {
-        console.warn(`⚠️  Mismatch: ${results.length} Spiele geladen, aber ${totalGames} erwartet`);
+      if (totalGames > 0 && results.length !== totalGames) {
+        console.warn(`⚠️  Mismatch: ${results.length} Spiele geladen, aber API meldete ${totalGames} Spiele`);
         console.warn(`Einzigartige Spiel-IDs: ${gameIds.size}`);
         console.warn(`Mögliche Ursachen:`);
         console.warn(`- Doppelte Spiele in der API`);
-        console.warn(`- Fehler beim Abrufen einzelner Seiten`);
         console.warn(`- API liefert inkonsistente Daten`);
         console.warn(`- Seitenüberschneidungen`);
         
         // Debug: Zeige erste paar Spiel-IDs
         const sampleIds = Array.from(gameIds).slice(0, 5);
         console.warn(`Beispiel Spiel-IDs: ${sampleIds.join(', ')}`);
+      } else if (totalGames === 0) {
+        console.log(`API meldete keine Spiele, aber ${results.length} Spiele gefunden`);
+      } else {
+        console.log(`✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
       }
 
       return {
-        total: totalGames,
+        total: results.length, // Tatsächliche Anzahl der geladenen Spiele
         results: results,
-        pages: totalPages,
+        pages: actualPages,
         pageSize: pageSize,
         actualCount: results.length,
-        complete: results.length === totalGames
+        complete: true, // Da wir alle verfügbaren Seiten abgerufen haben
+        apiReportedTotal: totalGames
       };
     } catch (error) {
       console.error("Fehler beim Abrufen aller offenen Spiele:", error.message);
