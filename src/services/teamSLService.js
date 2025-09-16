@@ -139,9 +139,9 @@ class TeamSLService {
 
       console.log("Starte adaptive parallele Abfrage aller offenen Spiele...");
 
-      // 1. Erste Seite abrufen um die Gesamtanzahl zu erhalten
+      // 1. Erste Seite abrufen um die Gesamtanzahl zu erhalten (nur 10 Spiele)
       console.log("Lade erste Seite um Gesamtanzahl zu ermitteln...");
-      const firstPage = await this.fetchOpenGames(0, pageSize, zeitraum);
+      const firstPage = await this.fetchOpenGames(0, 10, zeitraum);
       const totalGames = firstPage.total || 0;
       
       console.log(`API meldet ${totalGames} Spiele insgesamt`);
@@ -162,21 +162,13 @@ class TeamSLService {
       const gameIds = new Set();
       const duplicateGames = new Map(); // Speichert Duplikate mit Details
       
-      // Erste Seite bereits laden
-      if (firstPage.results) {
-        firstPage.results.forEach((game) => {
-          allGames.add(JSON.stringify(game));
-          gameIds.add(game.sp.spielplanId);
-        });
-        console.log(`Erste Seite: ${firstPage.results.length} Spiele geladen`);
-        console.log(`Gesamt nach Seite 1: ${allGames.size}/${totalGames} Spiele`);
-      }
+      console.log("Starte vollständige Abfrage aller Spiele...");
 
       // Berechne wie viele Seiten wir brauchen (immer 100 pro Seite)
       const estimatedPages = Math.ceil(totalGames / pageSize);
       const pagesToFetch = Math.min(estimatedPages, 50); // Maximal 50 Seiten
         
-      console.log(`Lade ${pagesToFetch} Seiten parallel (pageSize=${pageSize})...`);
+      console.log(`Lade ${pagesToFetch} Seiten parallel (pageSize=${pageSize}) - beginne bei Seite 1...`);
       
       // 10 Seiten parallel abrufen
       const batchSize = 10;
