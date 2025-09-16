@@ -160,6 +160,7 @@ class TeamSLService {
 
       const allGames = new Set();
       const gameIds = new Set();
+      const duplicateGames = new Map(); // Speichert Duplikate mit Details
       
       // Erste Seite bereits laden
       if (firstPage.results) {
@@ -211,6 +212,17 @@ class TeamSLService {
                   newGamesInBatch++;
                 } else {
                   duplicatesOnPage++;
+                  // Duplikat-Details sammeln
+                  if (!duplicateGames.has(gameId)) {
+                    duplicateGames.set(gameId, {
+                      spielplanId: gameId,
+                      heimMannschaft: game.sp.heimMannschaftLiga?.mannschaftName || 'N/A',
+                      gastMannschaft: game.sp.gastMannschaftLiga?.mannschaftName || 'N/A',
+                      spieldatum: game.sp.spieldatum,
+                      pages: []
+                    });
+                  }
+                  duplicateGames.get(gameId).pages.push(pageNumber);
                 }
               });
               
@@ -250,14 +262,38 @@ class TeamSLService {
       console.log(`Einzigartige IDs: ${gameIds.size}`);
       console.log(`Seiten geladen: ${pagesLoaded}`);
 
+      // Duplikat-Liste ausgeben
+      if (duplicateGames.size > 0) {
+        console.log(`\n📋 Duplikate gefunden (${duplicateGames.size} Spiele):`);
+        console.log(`═══════════════════════════════════════════════════════════════`);
+        
+        duplicateGames.forEach((duplicate, gameId) => {
+          const pagesList = duplicate.pages.sort((a, b) => a - b).join(', ');
+          console.log(`Spiel ${gameId}:`);
+          console.log(`  Teams: ${duplicate.heimMannschaft} vs ${duplicate.gastMannschaft}`);
+          console.log(`  Datum: ${duplicate.spieldatum}`);
+          console.log(`  Gefunden auf Seiten: ${pagesList}`);
+          console.log(`  Anzahl Duplikate: ${duplicate.pages.length}`);
+          console.log(`───────────────────────────────────────────────────────────────`);
+        });
+        
+        console.log(`\n📊 Duplikat-Statistik:`);
+        console.log(`- Gesamte Duplikate: ${duplicateGames.size} Spiele`);
+        const totalDuplicates = Array.from(duplicateGames.values()).reduce((sum, dup) => sum + dup.pages.length, 0);
+        console.log(`- Gesamte Duplikat-Einträge: ${totalDuplicates}`);
+        console.log(`- Durchschnittliche Duplikate pro Spiel: ${(totalDuplicates / duplicateGames.size).toFixed(2)}`);
+      } else {
+        console.log(`\n✅ Keine Duplikate gefunden`);
+      }
+
       if (results.length !== totalGames) {
-        console.warn(`⚠️  Nicht alle Spiele abgerufen: ${results.length}/${totalGames}`);
+        console.warn(`\n⚠️  Nicht alle Spiele abgerufen: ${results.length}/${totalGames}`);
         console.warn(`Mögliche Ursachen:`);
         console.warn(`- API liefert weniger Spiele als gemeldet`);
         console.warn(`- Duplikate in der API`);
         console.warn(`- Seitenüberschneidungen`);
       } else {
-        console.log(`✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
+        console.log(`\n✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
       }
 
       return {
