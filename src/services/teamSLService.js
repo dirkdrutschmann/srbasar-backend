@@ -175,7 +175,7 @@ class TeamSLService {
       console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
 
       // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
-      const BATCH_SIZE = 25; // Konfigurierbare Batch-Größe
+      const BATCH_SIZE = 200; // Konfigurierbare Batch-Größe
       const PAUSE_PER_REQUEST = 10; // Wartezeit pro Request in ms
       console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
