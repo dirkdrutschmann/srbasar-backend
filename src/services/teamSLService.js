@@ -223,7 +223,7 @@ class TeamSLService {
   // Neue Methoden basierend auf der alten teamSLService-old.js
   async fetchAllLigen() {
     try {
-      const { BasketballBundSDK } = require("basketball-bund-sdk");
+      const { BasketballBundSDK } = await import("basketball-bund-sdk");
       const sdk = new BasketballBundSDK();
       
       const response = await sdk.wam.getLigaList({
@@ -252,7 +252,7 @@ class TeamSLService {
 
   async fetchMatchesForLiga(liga) {
     try {
-      const { BasketballBundSDK } = require("basketball-bund-sdk");
+      const { BasketballBundSDK } = await import("basketball-bund-sdk");
       const sdk = new BasketballBundSDK();
       
       const data = await sdk.competition.getSpielplan({
