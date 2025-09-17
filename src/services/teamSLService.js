@@ -427,9 +427,9 @@ class TeamSLService {
           sr2Verein: game1.sr2Verein,
           sr3Verein: game1.sr3Verein
         },
-        sr1OffenAngeboten: gameDetails.sr1?.offenAngeboten || false,
-        sr2OffenAngeboten: gameDetails.sr2?.offenAngeboten || false,
-        sr3OffenAngeboten: gameDetails.sr3?.offenAngeboten || false,
+        sr1OffenAngeboten: (gameDetails.sr1?.offenAngeboten || false) && !gameDetails.sr1?.lizenzNr,
+        sr2OffenAngeboten: (gameDetails.sr2?.offenAngeboten || false) && !gameDetails.sr2?.lizenzNr,
+        sr3OffenAngeboten: (gameDetails.sr3?.offenAngeboten || false) && !gameDetails.sr3?.lizenzNr,
         sr1: gameDetails.sr1?.spielleitung ? {
           spielleitung: gameDetails.sr1.spielleitung,
           lizenzNr: gameDetails.sr1.lizenzNr,
@@ -632,7 +632,12 @@ class TeamSLService {
       for (const gameData of gamesData) {
         try {
           // Prüfe, ob das Spiel offen angeboten wird
-          const isOffered = gameData.sr1OffenAngeboten || gameData.sr2OffenAngeboten || gameData.sr3OffenAngeboten;
+          // Wenn offenAngeboten true ist, aber lizenzNr gesetzt ist, dann ist es nicht mehr offen angeboten
+          const sr1OffenAngeboten = gameData.sr1OffenAngeboten && !gameData.sr1?.lizenzNr;
+          const sr2OffenAngeboten = gameData.sr2OffenAngeboten && !gameData.sr2?.lizenzNr;
+          const sr3OffenAngeboten = gameData.sr3OffenAngeboten && !gameData.sr3?.lizenzNr;
+          
+          const isOffered = sr1OffenAngeboten || sr2OffenAngeboten || sr3OffenAngeboten;
           
           if (!isOffered) {
             // Spiel wird nicht offen angeboten - aus DB entfernen
