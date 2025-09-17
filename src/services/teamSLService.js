@@ -2,7 +2,6 @@ const axios = require("axios");
 const { Spiel, Verein, SrQualifikation } = require("../models");
 const { Op } = require("sequelize");
 const { fieldFn } = require("../utils/licenseUtils");
-const ExcelJS = require('exceljs');
 const path = require('path');
 
 class TeamSLService {
@@ -181,7 +180,6 @@ class TeamSLService {
       console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
       const duplicateGames = new Map();
-      const allApiData = [];
 
       const batchSize = BATCH_SIZE;
       const totalBatches = Math.ceil(allMatches.length / batchSize);
@@ -219,7 +217,6 @@ class TeamSLService {
           batchResults.forEach(result => {
             if (result.success) {
               detailedGames.push(result.game);
-              allApiData.push({ results: [result.game] });
               successCount++;
             }
           });
@@ -249,7 +246,6 @@ class TeamSLService {
         actualCount: detailedGames.length,
         complete: true,
         apiReportedTotal: allMatches.length,
-        allApiData: allApiData,
         duplicateGames: duplicateGames
       };
     } catch (error) {
@@ -580,137 +576,7 @@ class TeamSLService {
     }
   }
 
-  async exportAllApiDataToExcel(allApiData, duplicateGames = new Map()) {
-    try {
-      console.log("Erstelle Excel-Export aller API-Daten...");
-      
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('API Daten - Alle Spiele');
-      
-      // Spalten definieren
-      worksheet.columns = [
-        { header: 'Seite', key: 'page', width: 8 },
-        { header: 'Spielplan ID', key: 'spielplanId', width: 15 },
-        { header: 'Heim Mannschaft', key: 'heimMannschaft', width: 25 },
-        { header: 'Gast Mannschaft', key: 'gastMannschaft', width: 25 },
-        { header: 'Spieldatum', key: 'spieldatum', width: 15 },
-        { header: 'Liga', key: 'liga', width: 20 },
-        { header: 'SR1 Offen', key: 'sr1Offen', width: 10 },
-        { header: 'SR2 Offen', key: 'sr2Offen', width: 10 },
-        { header: 'SR3 Offen', key: 'sr3Offen', width: 10 },
-        { header: 'SR1 Verein', key: 'sr1Verein', width: 25 },
-        { header: 'SR2 Verein', key: 'sr2Verein', width: 25 },
-        { header: 'SR3 Verein', key: 'sr3Verein', width: 25 },
-        { header: 'Spielfeld', key: 'spielfeld', width: 30 },
-        { header: 'Duplikat', key: 'isDuplicate', width: 10 },
-        { header: 'Duplikat Seiten', key: 'duplicatePages', width: 20 },
-        { header: 'Raw Data', key: 'rawData', width: 50 }
-      ];
 
-      // Stil für Header
-      worksheet.getRow(1).font = { bold: true };
-      worksheet.getRow(1).fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE0E0E0' }
-      };
-
-      let rowNumber = 2;
-      const gameCounts = new Map();
-
-      // Alle API-Daten durchgehen
-      allApiData.forEach((pageData, pageIndex) => {
-        if (pageData.results && pageData.results.length > 0) {
-          pageData.results.forEach((game) => {
-            const gameId = game.sp.spielplanId;
-            const page = pageIndex + 1;
-            
-            // Zähle wie oft dieses Spiel vorkommt
-            if (!gameCounts.has(gameId)) {
-              gameCounts.set(gameId, []);
-            }
-            gameCounts.get(gameId).push(page);
-
-            // Duplikat-Information
-            const isDuplicate = gameCounts.get(gameId).length > 1;
-            const duplicatePages = gameCounts.get(gameId).join(', ');
-
-            // Zeile hinzufügen
-            worksheet.addRow({
-              page: page,
-              spielplanId: gameId,
-              heimMannschaft: game.sp.heimMannschaftLiga?.mannschaftName || 'N/A',
-              gastMannschaft: game.sp.gastMannschaftLiga?.mannschaftName || 'N/A',
-              spieldatum: game.sp.spieldatum,
-              liga: game.sp.liga?.liganame || 'N/A',
-              sr1Offen: game.sr1OffenAngeboten ? 'Ja' : 'Nein',
-              sr2Offen: game.sr2OffenAngeboten ? 'Ja' : 'Nein',
-              sr3Offen: game.sr3OffenAngeboten ? 'Ja' : 'Nein',
-              sr1Verein: game.sp.sr1Verein?.vereinsname || 'N/A',
-              sr2Verein: game.sp.sr2Verein?.vereinsname || 'N/A',
-              sr3Verein: game.sp.sr3Verein?.vereinsname || 'N/A',
-              spielfeld: `${game.sp.spielfeld?.bezeichnung || 'N/A'} - ${game.sp.spielfeld?.strasse || ''} ${game.sp.spielfeld?.plz || ''} ${game.sp.spielfeld?.ort || ''}`.trim(),
-              isDuplicate: isDuplicate ? 'Ja' : 'Nein',
-              duplicatePages: isDuplicate ? duplicatePages : '',
-              rawData: JSON.stringify(game).substring(0, 500) + '...'
-            });
-
-            // Duplikate farblich markieren
-            if (isDuplicate) {
-              const row = worksheet.getRow(rowNumber);
-              row.fill = {
-                type: 'pattern',
-                pattern: 'solid',
-                fgColor: { argb: 'FFFFE0E0' } // Hellrot für Duplikate
-              };
-            }
-
-            rowNumber++;
-          });
-        }
-      });
-
-      // Zusammenfassung am Ende hinzufügen
-      worksheet.addRow({}); // Leere Zeile
-      worksheet.addRow({ spielplanId: '=== ZUSAMMENFASSUNG ===' });
-      worksheet.addRow({ spielplanId: `Gesamte Zeilen: ${rowNumber - 3}` });
-      worksheet.addRow({ spielplanId: `Einzigartige Spiele: ${gameCounts.size}` });
-      
-      const totalDuplicates = Array.from(gameCounts.values()).filter(pages => pages.length > 1).length;
-      worksheet.addRow({ spielplanId: `Spiele mit Duplikaten: ${totalDuplicates}` });
-      
-      const totalDuplicateEntries = Array.from(gameCounts.values()).reduce((sum, pages) => sum + pages.length - 1, 0);
-      worksheet.addRow({ spielplanId: `Gesamte Duplikat-Einträge: ${totalDuplicateEntries}` });
-
-      // Datei speichern
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-      const filename = `api-data-export-${timestamp}.xlsx`;
-      const filepath = path.join(process.cwd(), filename);
-      
-      await workbook.xlsx.writeFile(filepath);
-      
-      console.log(`✅ Excel-Export erstellt: ${filepath}`);
-      console.log(`📊 Export-Statistik:`);
-      console.log(`- Gesamte Zeilen: ${rowNumber - 3}`);
-      console.log(`- Einzigartige Spiele: ${gameCounts.size}`);
-      console.log(`- Spiele mit Duplikaten: ${totalDuplicates}`);
-      console.log(`- Gesamte Duplikat-Einträge: ${totalDuplicateEntries}`);
-
-      return {
-        success: true,
-        filepath: filepath,
-        filename: filename,
-        totalRows: rowNumber - 3,
-        uniqueGames: gameCounts.size,
-        duplicateGames: totalDuplicates,
-        duplicateEntries: totalDuplicateEntries
-      };
-
-    } catch (error) {
-      console.error("Fehler beim Erstellen des Excel-Exports:", error.message);
-      throw error;
-    }
-  }
 
   async orphanRemoval(gamesData) {
     try {
