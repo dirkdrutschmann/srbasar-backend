@@ -176,7 +176,7 @@ class TeamSLService {
 
       // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
       const BATCH_SIZE = 200; // Konfigurierbare Batch-Größe
-      const PAUSE_PER_REQUEST = 10; // Wartezeit pro Request in ms
+      const PAUSE_PER_REQUEST = 0; // Wartezeit pro Request in ms
       console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
       const duplicateGames = new Map();
