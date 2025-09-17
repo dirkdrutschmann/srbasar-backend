@@ -415,13 +415,19 @@ class TeamSLService {
         sp: {
           spielplanId: game1.spielplanId,
           spieldatum: game1.spieldatum,
-          heimMannschaftLiga: {
-            mannschaftName: game1.heimMannschaftLiga?.mannschaftName || 'N/A',
-            hideLink: game1.heimMannschaftLiga?.hideLink || false
+          heimMannschaftLiga: game1.heimMannschaftLiga ? {
+            mannschaftName: game1.heimMannschaftLiga.mannschaftName || 'N/A',
+            hideLink: game1.heimMannschaftLiga.hideLink || false
+          } : {
+            mannschaftName: 'N/A',
+            hideLink: false
           },
-          gastMannschaftLiga: {
-            mannschaftName: game1.gastMannschaftLiga?.mannschaftName || 'N/A',
-            hideLink: game1.gastMannschaftLiga?.hideLink || false
+          gastMannschaftLiga: game1.gastMannschaftLiga ? {
+            mannschaftName: game1.gastMannschaftLiga.mannschaftName || 'N/A',
+            hideLink: game1.gastMannschaftLiga.hideLink || false
+          } : {
+            mannschaftName: 'N/A',
+            hideLink: false
           },
           liga: {
             liganame: game1.liga?.liganame || 'N/A',
@@ -765,19 +771,17 @@ class TeamSLService {
         bothVereinsHideLink: 0,
         heimVereinNotFound: 0,
         gastVereinNotFound: 0,
+        offenAngebotenAberVereinNull: 0,
         processingError: 0
       };
 
       for (const gameData of gamesData) {
         try {
           // Prüfe, ob das Spiel offen angeboten wird
-          if (
-            (gameData.sr1OffenAngeboten && !gameData.sr1) ||
-            (gameData.sr2OffenAngeboten && !gameData.sr2) ||
-            (gameData.sr3OffenAngeboten && !gameData.sr3)
-          ) {
-            // Spiel wird verarbeitet
-          } else {
+          const isOffered = gameData.sr1OffenAngeboten || gameData.sr2OffenAngeboten || gameData.sr3OffenAngeboten;
+          
+          if (!isOffered) {
+            // Spiel wird nicht offen angeboten - aus DB entfernen
             await Spiel.destroy({
               where: {
                 spielplanId: {
@@ -787,6 +791,18 @@ class TeamSLService {
               force: true,
             });
             skippedReasons.notOffered++;
+            skippedGames++;
+            continue;
+          }
+
+          // Prüfe, ob offen angeboten aber entsprechender Verein null ist
+          if (
+            (gameData.sr1OffenAngeboten && !gameData.sp.sr1Verein) ||
+            (gameData.sr2OffenAngeboten && !gameData.sp.sr2Verein) ||
+            (gameData.sr3OffenAngeboten && !gameData.sp.sr3Verein)
+          ) {
+            console.log(`Spiel ${gameData.sp.spielplanId} übersprungen: offen angeboten aber Verein null`);
+            skippedReasons.offenAngebotenAberVereinNull++;
             skippedGames++;
             continue;
           }
@@ -1023,6 +1039,7 @@ class TeamSLService {
       console.log(`- Beide Vereine hideLink: ${skippedReasons.bothVereinsHideLink}`);
       console.log(`- Heimverein nicht gefunden: ${skippedReasons.heimVereinNotFound}`);
       console.log(`- Gastverein nicht gefunden: ${skippedReasons.gastVereinNotFound}`);
+      console.log(`- Offen angeboten aber Verein null: ${skippedReasons.offenAngebotenAberVereinNull}`);
       console.log(`- Verarbeitungsfehler: ${skippedReasons.processingError}`);
       
       if (errors.length > 0) {
