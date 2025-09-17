@@ -389,6 +389,22 @@ class TeamSLService {
     });
   }
 
+  shouldTreatAsSet(srData) {
+    // Wenn spielleitung existiert und spielleitungstatus === "eingeteilt" ist,
+    // dann soll es so behandelt werden, als ob der SR bereits gesetzt ist
+    if (srData?.spielleitung && srData.spielleitung.spielleitungstatus === "eingeteilt") {
+      return true;
+    }
+    
+    // Wenn offen angeboten aber lizenzNr gesetzt ist, behandele es wie besetzt
+    if (srData?.offenAngeboten && srData?.lizenzNr) {
+      return true;
+    }
+    
+    // Fallback: Nur wenn spielleitung existiert (alte Logik)
+    return srData?.spielleitung ? true : false;
+  }
+
   convertGameDetailsToApiFormat(gameDetails) {
     try {
       const game1 = gameDetails.game1;
@@ -430,17 +446,17 @@ class TeamSLService {
         sr1OffenAngeboten: gameDetails.sr1?.offenAngeboten || false,
         sr2OffenAngeboten: gameDetails.sr2?.offenAngeboten || false,
         sr3OffenAngeboten: gameDetails.sr3?.offenAngeboten || false,
-        sr1: gameDetails.sr1?.spielleitung ? {
+        sr1: this.shouldTreatAsSet(gameDetails.sr1) ? {
           spielleitung: gameDetails.sr1.spielleitung,
           lizenzNr: gameDetails.sr1.lizenzNr,
           srVerein: gameDetails.sr1.srVerein
         } : null,
-        sr2: gameDetails.sr2?.spielleitung ? {
+        sr2: this.shouldTreatAsSet(gameDetails.sr2) ? {
           spielleitung: gameDetails.sr2.spielleitung,
           lizenzNr: gameDetails.sr2.lizenzNr,
           srVerein: gameDetails.sr2.srVerein
         } : null,
-        sr3: gameDetails.sr3?.spielleitung ? {
+        sr3: this.shouldTreatAsSet(gameDetails.sr3) ? {
           spielleitung: gameDetails.sr3.spielleitung,
           lizenzNr: gameDetails.sr3.lizenzNr,
           srVerein: gameDetails.sr3.srVerein
