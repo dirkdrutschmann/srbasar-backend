@@ -175,13 +175,15 @@ class TeamSLService {
       await this.login(username, password);
       console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
 
-      // 4. Für jede matchId detaillierte Daten abrufen (in Batches von 10)
-      console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von 10...`);
+      // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
+      const BATCH_SIZE = 25; // Konfigurierbare Batch-Größe
+      const PAUSE_PER_REQUEST = 10; // Wartezeit pro Request in ms
+      console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
       const duplicateGames = new Map();
       const allApiData = [];
 
-      const batchSize = 10;
+      const batchSize = BATCH_SIZE;
       const totalBatches = Math.ceil(allMatches.length / batchSize);
 
       for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
@@ -227,10 +229,11 @@ class TeamSLService {
           console.error(`  Fehler in Batch ${batchIndex + 1}:`, error.message);
         }
 
-        // Pause zwischen Batches
+        // Pause zwischen Batches (konfigurierbare Wartezeit)
         if (batchIndex < totalBatches - 1) {
-          console.log(`  Warte 200ms vor nächstem Batch...`);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          const pauseTime = BATCH_SIZE * PAUSE_PER_REQUEST;
+          console.log(`  Warte ${pauseTime}ms vor nächstem Batch...`);
+          await new Promise(resolve => setTimeout(resolve, pauseTime));
         }
       }
 
