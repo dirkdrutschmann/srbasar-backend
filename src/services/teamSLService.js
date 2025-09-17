@@ -357,19 +357,7 @@ class TeamSLService {
           endDate = new Date(today);
           endDate.setDate(today.getDate() + 22);
           break;
-          
-        case "w4":
-          // 4 Wochen + 1 Tag = 29 Tage
-          endDate = new Date(today);
-          endDate.setDate(today.getDate() + 29);
-          break;
-          
-        case "w8":
-          // 8 Wochen + 1 Tag = 57 Tage
-          endDate = new Date(today);
-          endDate.setDate(today.getDate() + 57);
-          break;
-          
+         
         default:
           console.warn(`Unbekannter zeitraum: ${zeitraum}, verwende 'all'`);
           endDate = null;

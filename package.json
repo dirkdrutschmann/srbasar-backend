@@ -12,9 +12,9 @@
     "pm2:delete": "pm2 delete ecosystem.config.js",
     "pm2:logs": "pm2 logs",
     "pm2:monit": "pm2 monit",
-    "bbn:job": "node src/jobs/bbnCronJob.js",
     "cron": "node src/jobs/cronRunner.js all",
-    "export:excel": "node src/jobs/exportExcel.js",
+    "cron:w1": "node src/jobs/cronRunner.js w1",
+    "cron:w3": "node src/jobs/cronRunner.js w3",
     "test": "jest",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all"
@@ -36,8 +36,7 @@
     "pm2": "^5.3.0",
     "sequelize": "^6.35.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1",
-    "exceljs": "^4.4.0"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "jest": "^29.7.0",
