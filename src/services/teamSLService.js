@@ -175,8 +175,8 @@ class TeamSLService {
       console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
 
       // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
-      const BATCH_SIZE = 25; // Konfigurierbare Batch-Größe
-      const PAUSE_PER_REQUEST = 10; // Wartezeit pro Request in ms
+      const BATCH_SIZE = 100; // Konfigurierbare Batch-Größe
+      const PAUSE_PER_REQUEST = 1; // Wartezeit pro Request in ms
       console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
       const duplicateGames = new Map();
@@ -389,15 +389,13 @@ class TeamSLService {
     });
   }
 
-  shouldBeOffenAngeboten(gameData, srData) {
-    // Wenn spielleitung existiert mit lizenzNr und spielleitungstatus = "eingeteilt"
-    // dann ist es nicht mehr offen angeboten
-    if (srData?.spielleitung?.lizenzNr && srData.spielleitung.spielleitungstatus === "eingeteilt") {
+  shouldBeOffenAngeboten(srData) {
+    if (srData?.lizenzNr) {
       return false;
     }
     
     // Ansonsten den ursprünglichen offenAngeboten Wert verwenden
-    return gameData?.offenAngeboten || false;
+    return srData?.offenAngeboten || false;
   }
 
   convertGameDetailsToApiFormat(gameDetails) {
