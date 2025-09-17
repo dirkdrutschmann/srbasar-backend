@@ -385,7 +385,7 @@ class TeamSLService {
       }
 
       // kickoffDate ist ein Timestamp (Millisekunden)
-      const matchDate = new Date(parseInt(match.kickoffDate));
+      const matchDate = new Date(match.kickoffDate);
       const matchDateOnly = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
       
       // Immer nur zukünftige Spiele (ab heute)
