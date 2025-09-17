@@ -142,16 +142,20 @@ class TeamSLService {
       const ligen = await this.fetchAllLigen();
       console.log(`${ligen.length} Ligen gefunden`);
 
-      // 2. Alle Matches aus allen Ligen abrufen (alte Methode)
-      console.log("Lade alle Matches aus allen Ligen...");
+      // 2. Alle Matches aus allen Ligen abrufen und nach zeitraum filtern
+      console.log(`Lade alle Matches aus allen Ligen und filtere nach zeitraum: ${zeitraum}...`);
       const allMatches = [];
       
       for (const liga of ligen) {
         try {
           console.log(`Lade Matches für Liga ${liga.ligaId}: ${liga.liganame}`);
           const matches = await this.fetchMatchesForLiga(liga);
-          allMatches.push(...matches);
-          console.log(`  ${matches.length} Matches gefunden`);
+          
+          // Filtere Matches nach zeitraum basierend auf kickoffDate
+          const filteredMatches = this.filterMatchesByZeitraum(matches, zeitraum);
+          allMatches.push(...filteredMatches);
+          
+          console.log(`  ${matches.length} Matches gefunden, ${filteredMatches.length} nach Zeitraum-Filter`);
         } catch (error) {
           console.error(`Fehler beim Laden der Matches für Liga ${liga.ligaId}:`, error.message);
         }
@@ -171,31 +175,62 @@ class TeamSLService {
       await this.login(username, password);
       console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
 
-      // 4. Für jede matchId detaillierte Daten abrufen
-      console.log("Lade detaillierte Daten für alle Matches...");
+      // 4. Für jede matchId detaillierte Daten abrufen (in Batches von 10)
+      console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von 10...`);
       const detailedGames = [];
       const duplicateGames = new Map();
       const allApiData = [];
 
-      for (let i = 0; i < allMatches.length; i++) {
-        const match = allMatches[i];
+      const batchSize = 10;
+      const totalBatches = Math.ceil(allMatches.length / batchSize);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * batchSize;
+        const batchEnd = Math.min(batchStart + batchSize, allMatches.length);
+        const batch = allMatches.slice(batchStart, batchEnd);
+
+        console.log(`Verarbeite Batch ${batchIndex + 1}/${totalBatches}: Matches ${batchStart + 1}-${batchEnd}`);
+
+        // Batch parallel verarbeiten
+        const batchPromises = batch.map(async (match, index) => {
+          const globalIndex = batchStart + index;
+          try {
+            console.log(`  Lade Details für Match ${globalIndex + 1}/${allMatches.length}: ${match.matchId}`);
+            
+            const gameDetails = await this.fetchGameDetails(match.matchId);
+            if (gameDetails) {
+              // Konvertiere zu dem Format, das die alte API erwartet
+              const convertedGame = this.convertGameDetailsToApiFormat(gameDetails);
+              return { success: true, game: convertedGame, matchId: match.matchId };
+            }
+            return { success: false, matchId: match.matchId, error: 'Keine Details erhalten' };
+          } catch (error) {
+            console.error(`  Fehler beim Laden der Details für Match ${match.matchId}:`, error.message);
+            return { success: false, matchId: match.matchId, error: error.message };
+          }
+        });
+
         try {
-          console.log(`Lade Details für Match ${i + 1}/${allMatches.length}: ${match.matchId}`);
+          const batchResults = await Promise.all(batchPromises);
           
-          const gameDetails = await this.fetchGameDetails(match.matchId);
-          if (gameDetails) {
-            // Konvertiere zu dem Format, das die alte API erwartet
-            const convertedGame = this.convertGameDetailsToApiFormat(gameDetails);
-            detailedGames.push(convertedGame);
-            allApiData.push({ results: [convertedGame] });
-          }
-          
-          // Kleine Pause zwischen Requests
-          if (i % 10 === 0 && i > 0) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
+          let successCount = 0;
+          batchResults.forEach(result => {
+            if (result.success) {
+              detailedGames.push(result.game);
+              allApiData.push({ results: [result.game] });
+              successCount++;
+            }
+          });
+
+          console.log(`  Batch ${batchIndex + 1} abgeschlossen: ${successCount}/${batch.length} erfolgreich`);
         } catch (error) {
-          console.error(`Fehler beim Laden der Details für Match ${match.matchId}:`, error.message);
+          console.error(`  Fehler in Batch ${batchIndex + 1}:`, error.message);
+        }
+
+        // Pause zwischen Batches
+        if (batchIndex < totalBatches - 1) {
+          console.log(`  Warte 200ms vor nächstem Batch...`);
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
 
@@ -221,7 +256,7 @@ class TeamSLService {
   }
 
   // Neue Methoden basierend auf der alten teamSLService-old.js
-  async fetchAllLigen() {
+  async fetchAllLigen(index = 0) {
     try {
       const { BasketballBundSDK } = await import("basketball-bund-sdk");
       const sdk = new BasketballBundSDK();
@@ -235,7 +270,7 @@ class TeamSLService {
         spielklasseIds: [],
         token: "",
         verbandIds: [3],
-        startAtIndex: 0,
+        startAtIndex: index,
       });
 
       if (!response || !response.ligen) {
@@ -243,7 +278,17 @@ class TeamSLService {
         return [];
       }
 
-      return response.ligen.filter(liga => liga.verbandId !== 30);
+      const ligen = response.ligen.filter(liga => liga.verbandId !== 30);
+      console.log(`${ligen.length} Ligen bei Index ${index} gefunden`);
+
+      // Rekursiv weitere Ligen laden wenn hasMoreData = true
+      if (response.hasMoreData) {
+        console.log("Lade weitere Ligen...");
+        const moreLigen = await this.fetchAllLigen(parseInt(index) + parseInt(response.size));
+        return [...ligen, ...moreLigen];
+      }
+
+      return ligen;
     } catch (error) {
       console.error("Fehler beim Laden der Ligen:", error.message);
       return [];
@@ -282,6 +327,65 @@ class TeamSLService {
       console.error(`Fehler beim Laden der Game-Details für Match ${matchId}:`, error.message);
       return null;
     }
+  }
+
+  filterMatchesByZeitraum(matches, zeitraum) {
+    if (zeitraum === "all") {
+      return matches;
+    }
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    let startDate, endDate;
+    
+    switch (zeitraum) {
+      case "w1":
+        // Nächste 8 Tage
+        startDate = new Date(today);
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() + 8);
+        break;
+        
+      case "w3":
+        // 3 Wochen + 1 Tag = 22 Tage
+        startDate = new Date(today);
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() + 22);
+        break;
+        
+      case "w4":
+        // 4 Wochen + 1 Tag = 29 Tage
+        startDate = new Date(today);
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() + 29);
+        break;
+        
+      case "w8":
+        // 8 Wochen + 1 Tag = 57 Tage
+        startDate = new Date(today);
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() + 57);
+        break;
+        
+      default:
+        console.warn(`Unbekannter zeitraum: ${zeitraum}, verwende 'all'`);
+        return matches;
+    }
+
+    console.log(`  Filtere Matches zwischen ${startDate.toISOString().split('T')[0]} und ${endDate.toISOString().split('T')[0]}`);
+
+    return matches.filter(match => {
+      if (!match.kickoffDate) {
+        return false;
+      }
+
+      // kickoffDate ist ein Timestamp (Millisekunden)
+      const matchDate = new Date(parseInt(match.kickoffDate));
+      const matchDateOnly = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
+      
+      return matchDateOnly >= startDate && matchDateOnly <= endDate;
+    });
   }
 
   convertGameDetailsToApiFormat(gameDetails) {
