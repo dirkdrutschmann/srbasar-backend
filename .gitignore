@@ -3,3 +3,8 @@ node_modules
 database.sqlite
 package-lock.json
 logs
+api-data-export-2025-09-16T14-24-42.xlsx
+src/services/teamSLService-old.js
+src/services/updateController-old.js
+src/jobs
+src/controllers/example.json

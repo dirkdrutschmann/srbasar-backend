@@ -2,6 +2,8 @@ const axios = require("axios");
 const { Spiel, Verein, SrQualifikation } = require("../models");
 const { Op } = require("sequelize");
 const { fieldFn } = require("../utils/licenseUtils");
+const ExcelJS = require('exceljs');
+const path = require('path');
 
 class TeamSLService {
   constructor() {
@@ -133,173 +135,207 @@ class TeamSLService {
 
   async fetchAllOpenGames(pageSize = 100, zeitraum = "all") {
     try {
-      if (!this.client) {
-        throw new Error("Nicht eingeloggt. Bitte zuerst login() aufrufen.");
-      }
+      console.log("Starte neue Abfrage-Strategie mit matchId-basierter Methode...");
 
-      console.log("Starte adaptive parallele Abfrage aller offenen Spiele...");
+      // 1. Alle Ligen abrufen (alte Methode)
+      console.log("Lade alle Ligen...");
+      const ligen = await this.fetchAllLigen();
+      console.log(`${ligen.length} Ligen gefunden`);
 
-      // 1. Erste Seite abrufen um die Gesamtanzahl zu erhalten (nur 10 Spiele)
-      console.log("Lade erste Seite um Gesamtanzahl zu ermitteln...");
-      const firstPage = await this.fetchOpenGames(0, 10, zeitraum);
-      const totalGames = firstPage.total || 0;
+      // 2. Alle Matches aus allen Ligen abrufen (alte Methode)
+      console.log("Lade alle Matches aus allen Ligen...");
+      const allMatches = [];
       
-      console.log(`API meldet ${totalGames} Spiele insgesamt`);
-
-      if (totalGames === 0) {
-        return {
-          total: 0,
-          results: [],
-          pages: 0,
-          pageSize: pageSize,
-          actualCount: 0,
-          complete: true,
-          apiReportedTotal: 0
-        };
-      }
-
-      const allGames = new Set();
-      const gameIds = new Set();
-      const duplicateGames = new Map(); // Speichert Duplikate mit Details
-      
-      console.log("Starte vollständige Abfrage aller Spiele...");
-
-      // Berechne wie viele Seiten wir brauchen (immer 100 pro Seite)
-      const estimatedPages = Math.ceil(totalGames / pageSize);
-      const pagesToFetch = Math.min(estimatedPages, 50); // Maximal 50 Seiten
-        
-      console.log(`Lade ${pagesToFetch} Seiten parallel (pageSize=${pageSize}) - beginne bei Seite 1...`);
-      
-      // 10 Seiten parallel abrufen
-      const batchSize = 10;
-      let pagesLoaded = 0;
-      
-      for (let batchStart = 1; batchStart <= pagesToFetch; batchStart += batchSize) {
-        const batchEnd = Math.min(batchStart + batchSize - 1, pagesToFetch);
-        const batch = [];
-        
-        // Batch von Seiten vorbereiten
-        for (let page = batchStart; page <= batchEnd; page++) {
-          batch.push(this.fetchOpenGames(page, pageSize, zeitraum));
-        }
-        
-        console.log(`Lade Batch: Seiten ${batchStart}-${batchEnd}...`);
-        
+      for (const liga of ligen) {
         try {
-          const batchResults = await Promise.all(batch);
+          console.log(`Lade Matches für Liga ${liga.ligaId}: ${liga.liganame}`);
+          const matches = await this.fetchMatchesForLiga(liga);
+          allMatches.push(...matches);
+          console.log(`  ${matches.length} Matches gefunden`);
+        } catch (error) {
+          console.error(`Fehler beim Laden der Matches für Liga ${liga.ligaId}:`, error.message);
+        }
+      }
+
+      console.log(`Gesamt ${allMatches.length} Matches gefunden`);
+
+      // 3. Mit neuem TeamSL Service einloggen
+      console.log("Logge mit neuem TeamSL Service ein...");
+      const username = process.env.TEAM_SL_USERNAME;
+      const password = process.env.TEAM_SL_PASSWORD;
+
+      if (!username || !password) {
+        throw new Error("TEAM_SL_USERNAME und TEAM_SL_PASSWORD müssen in den Umgebungsvariablen gesetzt sein");
+      }
+
+      await this.login(username, password);
+      console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
+
+      // 4. Für jede matchId detaillierte Daten abrufen
+      console.log("Lade detaillierte Daten für alle Matches...");
+      const detailedGames = [];
+      const duplicateGames = new Map();
+      const allApiData = [];
+
+      for (let i = 0; i < allMatches.length; i++) {
+        const match = allMatches[i];
+        try {
+          console.log(`Lade Details für Match ${i + 1}/${allMatches.length}: ${match.matchId}`);
           
-          let newGamesInBatch = 0;
-          batchResults.forEach((pageData, index) => {
-            const pageNumber = batchStart + index;
-            if (pageData.results && pageData.results.length > 0) {
-              let newGamesOnPage = 0;
-              let duplicatesOnPage = 0;
-              
-              pageData.results.forEach((game) => {
-                const gameId = game.sp.spielplanId;
-                if (!gameIds.has(gameId)) {
-                  allGames.add(JSON.stringify(game));
-                  gameIds.add(gameId);
-                  newGamesOnPage++;
-                  newGamesInBatch++;
-                } else {
-                  duplicatesOnPage++;
-                  // Duplikat-Details sammeln
-                  if (!duplicateGames.has(gameId)) {
-                    duplicateGames.set(gameId, {
-                      spielplanId: gameId,
-                      heimMannschaft: game.sp.heimMannschaftLiga?.mannschaftName || 'N/A',
-                      gastMannschaft: game.sp.gastMannschaftLiga?.mannschaftName || 'N/A',
-                      spieldatum: game.sp.spieldatum,
-                      pages: []
-                    });
-                  }
-                  duplicateGames.get(gameId).pages.push(pageNumber);
-                }
-              });
-              
-              console.log(`  Seite ${pageNumber}: ${pageData.results.length} Spiele, ${newGamesOnPage} neue, ${duplicatesOnPage} Duplikate`);
-              pagesLoaded++;
-            } else {
-              console.log(`  Seite ${pageNumber}: Keine Spiele gefunden`);
-            }
-          });
-          
-          const totalAfterBatch = allGames.size;
-          const expectedAfterBatch = Math.min((batchEnd) * pageSize, totalGames);
-          console.log(`Batch abgeschlossen: ${newGamesInBatch} neue Spiele, ${totalAfterBatch}/${totalGames} gesamt (Seiten 1-${batchEnd})`);
-          console.log(`Erwartet nach ${batchEnd} Seiten: ${expectedAfterBatch}, tatsächlich: ${totalAfterBatch}`);
-          
-          // Prüfe ob wir alle Spiele haben
-          if (allGames.size >= totalGames) {
-            console.log(`✅ Alle ${totalGames} Spiele gefunden!`);
-            break;
+          const gameDetails = await this.fetchGameDetails(match.matchId);
+          if (gameDetails) {
+            // Konvertiere zu dem Format, das die alte API erwartet
+            const convertedGame = this.convertGameDetailsToApiFormat(gameDetails);
+            detailedGames.push(convertedGame);
+            allApiData.push({ results: [convertedGame] });
           }
           
+          // Kleine Pause zwischen Requests
+          if (i % 10 === 0 && i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
         } catch (error) {
-          console.error(`Fehler in Batch ${Math.floor(batchStart / batchSize) + 1}:`, error.message);
+          console.error(`Fehler beim Laden der Details für Match ${match.matchId}:`, error.message);
         }
-        
-        // Kleine Pause zwischen Batches
-        await new Promise((resolve) => setTimeout(resolve, 200));
       }
-      
-      console.log(`Abfrage abgeschlossen: ${allGames.size}/${totalGames} Spiele (${pagesLoaded} Seiten geladen)`);
-
-      // Set zurück zu Array konvertieren
-      const results = Array.from(allGames).map((gameStr) => JSON.parse(gameStr));
 
       console.log(`\n=== Abfrage abgeschlossen ===`);
-      console.log(`Geladene Spiele: ${results.length}/${totalGames}`);
-      console.log(`Einzigartige IDs: ${gameIds.size}`);
-      console.log(`Seiten geladen: ${pagesLoaded}`);
-
-      // Duplikat-Liste ausgeben
-      if (duplicateGames.size > 0) {
-        console.log(`\n📋 Duplikate gefunden (${duplicateGames.size} Spiele):`);
-        console.log(`═══════════════════════════════════════════════════════════════`);
-        
-        duplicateGames.forEach((duplicate, gameId) => {
-          const pagesList = duplicate.pages.sort((a, b) => a - b).join(', ');
-          console.log(`Spiel ${gameId}:`);
-          console.log(`  Teams: ${duplicate.heimMannschaft} vs ${duplicate.gastMannschaft}`);
-          console.log(`  Datum: ${duplicate.spieldatum}`);
-          console.log(`  Gefunden auf Seiten: ${pagesList}`);
-          console.log(`  Anzahl Duplikate: ${duplicate.pages.length}`);
-          console.log(`───────────────────────────────────────────────────────────────`);
-        });
-        
-        console.log(`\n📊 Duplikat-Statistik:`);
-        console.log(`- Gesamte Duplikate: ${duplicateGames.size} Spiele`);
-        const totalDuplicates = Array.from(duplicateGames.values()).reduce((sum, dup) => sum + dup.pages.length, 0);
-        console.log(`- Gesamte Duplikat-Einträge: ${totalDuplicates}`);
-        console.log(`- Durchschnittliche Duplikate pro Spiel: ${(totalDuplicates / duplicateGames.size).toFixed(2)}`);
-      } else {
-        console.log(`\n✅ Keine Duplikate gefunden`);
-      }
-
-      if (results.length !== totalGames) {
-        console.warn(`\n⚠️  Nicht alle Spiele abgerufen: ${results.length}/${totalGames}`);
-        console.warn(`Mögliche Ursachen:`);
-        console.warn(`- API liefert weniger Spiele als gemeldet`);
-        console.warn(`- Duplikate in der API`);
-        console.warn(`- Seitenüberschneidungen`);
-      } else {
-        console.log(`\n✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
-      }
+      console.log(`Geladene Spiele: ${detailedGames.length}/${allMatches.length}`);
+      console.log(`Einzigartige IDs: ${detailedGames.length}`);
 
       return {
-        total: results.length,
-        results: results,
-        pages: pagesLoaded,
-        pageSize: pageSize,
-        actualCount: results.length,
-        complete: results.length >= totalGames,
-        apiReportedTotal: totalGames
+        total: detailedGames.length,
+        results: detailedGames,
+        pages: 1,
+        pageSize: detailedGames.length,
+        actualCount: detailedGames.length,
+        complete: true,
+        apiReportedTotal: allMatches.length,
+        allApiData: allApiData,
+        duplicateGames: duplicateGames
       };
     } catch (error) {
       console.error("Fehler beim Abrufen aller offenen Spiele:", error.message);
       throw error;
+    }
+  }
+
+  // Neue Methoden basierend auf der alten teamSLService-old.js
+  async fetchAllLigen() {
+    try {
+      const { BasketballBundSDK } = require("basketball-bund-sdk");
+      const sdk = new BasketballBundSDK();
+      
+      const response = await sdk.wam.getLigaList({
+        akgGeschlechtIds: [],
+        altersklasseIds: [],
+        gebietIds: [],
+        ligatypIds: [],
+        sortBy: 0,
+        spielklasseIds: [],
+        token: "",
+        verbandIds: [3],
+        startAtIndex: 0,
+      });
+
+      if (!response || !response.ligen) {
+        console.log("Keine Ligen gefunden");
+        return [];
+      }
+
+      return response.ligen.filter(liga => liga.verbandId !== 30);
+    } catch (error) {
+      console.error("Fehler beim Laden der Ligen:", error.message);
+      return [];
+    }
+  }
+
+  async fetchMatchesForLiga(liga) {
+    try {
+      const { BasketballBundSDK } = require("basketball-bund-sdk");
+      const sdk = new BasketballBundSDK();
+      
+      const data = await sdk.competition.getSpielplan({
+        competitionId: liga.ligaId,
+      });
+
+      if (!data || !data.matches) {
+        return [];
+      }
+
+      return data.matches;
+    } catch (error) {
+      console.error(`Fehler beim Laden der Matches für Liga ${liga.ligaId}:`, error.message);
+      return [];
+    }
+  }
+
+  async fetchGameDetails(matchId) {
+    try {
+      if (!this.client) {
+        throw new Error("Nicht eingeloggt. Bitte zuerst login() aufrufen.");
+      }
+
+      const response = await this.client.get(`/rest/assignschiri/getGame/${matchId}`);
+      return response.data;
+    } catch (error) {
+      console.error(`Fehler beim Laden der Game-Details für Match ${matchId}:`, error.message);
+      return null;
+    }
+  }
+
+  convertGameDetailsToApiFormat(gameDetails) {
+    try {
+      const game1 = gameDetails.game1;
+      if (!game1) return null;
+
+      // Konvertiere zu dem Format, das die alte API verwendet
+      return {
+        sp: {
+          spielplanId: game1.spielplanId,
+          spieldatum: game1.spieldatum,
+          heimMannschaftLiga: {
+            mannschaftName: game1.heimMannschaftLiga?.mannschaftName || 'N/A'
+          },
+          gastMannschaftLiga: {
+            mannschaftName: game1.gastMannschaftLiga?.mannschaftName || 'N/A'
+          },
+          liga: {
+            liganame: game1.liga?.liganame || 'N/A',
+            srQualifikation: game1.liga?.srQualifikation
+          },
+          spielfeld: {
+            bezeichnung: game1.spielfeld?.bezeichnung || 'N/A',
+            strasse: game1.spielfeld?.strasse || '',
+            plz: game1.spielfeld?.plz || '',
+            ort: game1.spielfeld?.ort || ''
+          },
+          sr1Verein: game1.sr1Verein,
+          sr2Verein: game1.sr2Verein,
+          sr3Verein: game1.sr3Verein
+        },
+        sr1OffenAngeboten: gameDetails.sr1?.offenAngeboten || false,
+        sr2OffenAngeboten: gameDetails.sr2?.offenAngeboten || false,
+        sr3OffenAngeboten: gameDetails.sr3?.offenAngeboten || false,
+        sr1: gameDetails.sr1?.spielleitung ? {
+          spielleitung: gameDetails.sr1.spielleitung,
+          lizenzNr: gameDetails.sr1.lizenzNr,
+          srVerein: gameDetails.sr1.srVerein
+        } : null,
+        sr2: gameDetails.sr2?.spielleitung ? {
+          spielleitung: gameDetails.sr2.spielleitung,
+          lizenzNr: gameDetails.sr2.lizenzNr,
+          srVerein: gameDetails.sr2.srVerein
+        } : null,
+        sr3: gameDetails.sr3?.spielleitung ? {
+          spielleitung: gameDetails.sr3.spielleitung,
+          lizenzNr: gameDetails.sr3.lizenzNr,
+          srVerein: gameDetails.sr3.srVerein
+        } : null
+      };
+    } catch (error) {
+      console.error("Fehler beim Konvertieren der Game-Details:", error.message);
+      return null;
     }
   }
 
@@ -423,6 +459,138 @@ class TeamSLService {
       };
     } catch (error) {
       console.error("Fehler bei der Validierung der Spielverarbeitung:", error.message);
+      throw error;
+    }
+  }
+
+  async exportAllApiDataToExcel(allApiData, duplicateGames = new Map()) {
+    try {
+      console.log("Erstelle Excel-Export aller API-Daten...");
+      
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('API Daten - Alle Spiele');
+      
+      // Spalten definieren
+      worksheet.columns = [
+        { header: 'Seite', key: 'page', width: 8 },
+        { header: 'Spielplan ID', key: 'spielplanId', width: 15 },
+        { header: 'Heim Mannschaft', key: 'heimMannschaft', width: 25 },
+        { header: 'Gast Mannschaft', key: 'gastMannschaft', width: 25 },
+        { header: 'Spieldatum', key: 'spieldatum', width: 15 },
+        { header: 'Liga', key: 'liga', width: 20 },
+        { header: 'SR1 Offen', key: 'sr1Offen', width: 10 },
+        { header: 'SR2 Offen', key: 'sr2Offen', width: 10 },
+        { header: 'SR3 Offen', key: 'sr3Offen', width: 10 },
+        { header: 'SR1 Verein', key: 'sr1Verein', width: 25 },
+        { header: 'SR2 Verein', key: 'sr2Verein', width: 25 },
+        { header: 'SR3 Verein', key: 'sr3Verein', width: 25 },
+        { header: 'Spielfeld', key: 'spielfeld', width: 30 },
+        { header: 'Duplikat', key: 'isDuplicate', width: 10 },
+        { header: 'Duplikat Seiten', key: 'duplicatePages', width: 20 },
+        { header: 'Raw Data', key: 'rawData', width: 50 }
+      ];
+
+      // Stil für Header
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE0E0E0' }
+      };
+
+      let rowNumber = 2;
+      const gameCounts = new Map();
+
+      // Alle API-Daten durchgehen
+      allApiData.forEach((pageData, pageIndex) => {
+        if (pageData.results && pageData.results.length > 0) {
+          pageData.results.forEach((game) => {
+            const gameId = game.sp.spielplanId;
+            const page = pageIndex + 1;
+            
+            // Zähle wie oft dieses Spiel vorkommt
+            if (!gameCounts.has(gameId)) {
+              gameCounts.set(gameId, []);
+            }
+            gameCounts.get(gameId).push(page);
+
+            // Duplikat-Information
+            const isDuplicate = gameCounts.get(gameId).length > 1;
+            const duplicatePages = gameCounts.get(gameId).join(', ');
+
+            // Zeile hinzufügen
+            worksheet.addRow({
+              page: page,
+              spielplanId: gameId,
+              heimMannschaft: game.sp.heimMannschaftLiga?.mannschaftName || 'N/A',
+              gastMannschaft: game.sp.gastMannschaftLiga?.mannschaftName || 'N/A',
+              spieldatum: game.sp.spieldatum,
+              liga: game.sp.liga?.liganame || 'N/A',
+              sr1Offen: game.sr1OffenAngeboten ? 'Ja' : 'Nein',
+              sr2Offen: game.sr2OffenAngeboten ? 'Ja' : 'Nein',
+              sr3Offen: game.sr3OffenAngeboten ? 'Ja' : 'Nein',
+              sr1Verein: game.sp.sr1Verein?.vereinsname || 'N/A',
+              sr2Verein: game.sp.sr2Verein?.vereinsname || 'N/A',
+              sr3Verein: game.sp.sr3Verein?.vereinsname || 'N/A',
+              spielfeld: `${game.sp.spielfeld?.bezeichnung || 'N/A'} - ${game.sp.spielfeld?.strasse || ''} ${game.sp.spielfeld?.plz || ''} ${game.sp.spielfeld?.ort || ''}`.trim(),
+              isDuplicate: isDuplicate ? 'Ja' : 'Nein',
+              duplicatePages: isDuplicate ? duplicatePages : '',
+              rawData: JSON.stringify(game).substring(0, 500) + '...'
+            });
+
+            // Duplikate farblich markieren
+            if (isDuplicate) {
+              const row = worksheet.getRow(rowNumber);
+              row.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFFE0E0' } // Hellrot für Duplikate
+              };
+            }
+
+            rowNumber++;
+          });
+        }
+      });
+
+      // Zusammenfassung am Ende hinzufügen
+      worksheet.addRow({}); // Leere Zeile
+      worksheet.addRow({ spielplanId: '=== ZUSAMMENFASSUNG ===' });
+      worksheet.addRow({ spielplanId: `Gesamte Zeilen: ${rowNumber - 3}` });
+      worksheet.addRow({ spielplanId: `Einzigartige Spiele: ${gameCounts.size}` });
+      
+      const totalDuplicates = Array.from(gameCounts.values()).filter(pages => pages.length > 1).length;
+      worksheet.addRow({ spielplanId: `Spiele mit Duplikaten: ${totalDuplicates}` });
+      
+      const totalDuplicateEntries = Array.from(gameCounts.values()).reduce((sum, pages) => sum + pages.length - 1, 0);
+      worksheet.addRow({ spielplanId: `Gesamte Duplikat-Einträge: ${totalDuplicateEntries}` });
+
+      // Datei speichern
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      const filename = `api-data-export-${timestamp}.xlsx`;
+      const filepath = path.join(process.cwd(), filename);
+      
+      await workbook.xlsx.writeFile(filepath);
+      
+      console.log(`✅ Excel-Export erstellt: ${filepath}`);
+      console.log(`📊 Export-Statistik:`);
+      console.log(`- Gesamte Zeilen: ${rowNumber - 3}`);
+      console.log(`- Einzigartige Spiele: ${gameCounts.size}`);
+      console.log(`- Spiele mit Duplikaten: ${totalDuplicates}`);
+      console.log(`- Gesamte Duplikat-Einträge: ${totalDuplicateEntries}`);
+
+      return {
+        success: true,
+        filepath: filepath,
+        filename: filename,
+        totalRows: rowNumber - 3,
+        uniqueGames: gameCounts.size,
+        duplicateGames: totalDuplicates,
+        duplicateEntries: totalDuplicateEntries
+      };
+
+    } catch (error) {
+      console.error("Fehler beim Erstellen des Excel-Exports:", error.message);
       throw error;
     }
   }
