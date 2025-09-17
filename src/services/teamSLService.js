@@ -330,50 +330,54 @@ class TeamSLService {
   }
 
   filterMatchesByZeitraum(matches, zeitraum) {
-    if (zeitraum === "all") {
-      return matches;
-    }
-
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    let startDate, endDate;
+    // Immer nur zukünftige Spiele (ab heute) - nie gestern oder früher
+    const startDate = new Date(today);
     
-    switch (zeitraum) {
-      case "w1":
-        // Nächste 8 Tage
-        startDate = new Date(today);
-        endDate = new Date(today);
-        endDate.setDate(today.getDate() + 8);
-        break;
-        
-      case "w3":
-        // 3 Wochen + 1 Tag = 22 Tage
-        startDate = new Date(today);
-        endDate = new Date(today);
-        endDate.setDate(today.getDate() + 22);
-        break;
-        
-      case "w4":
-        // 4 Wochen + 1 Tag = 29 Tage
-        startDate = new Date(today);
-        endDate = new Date(today);
-        endDate.setDate(today.getDate() + 29);
-        break;
-        
-      case "w8":
-        // 8 Wochen + 1 Tag = 57 Tage
-        startDate = new Date(today);
-        endDate = new Date(today);
-        endDate.setDate(today.getDate() + 57);
-        break;
-        
-      default:
-        console.warn(`Unbekannter zeitraum: ${zeitraum}, verwende 'all'`);
-        return matches;
+    let endDate;
+    
+    if (zeitraum === "all") {
+      // Bei "all" nur zukünftige Spiele, aber ohne Enddatum
+      endDate = null;
+    } else {
+      switch (zeitraum) {
+        case "w1":
+          // Nächste 8 Tage
+          endDate = new Date(today);
+          endDate.setDate(today.getDate() + 8);
+          break;
+          
+        case "w3":
+          // 3 Wochen + 1 Tag = 22 Tage
+          endDate = new Date(today);
+          endDate.setDate(today.getDate() + 22);
+          break;
+          
+        case "w4":
+          // 4 Wochen + 1 Tag = 29 Tage
+          endDate = new Date(today);
+          endDate.setDate(today.getDate() + 29);
+          break;
+          
+        case "w8":
+          // 8 Wochen + 1 Tag = 57 Tage
+          endDate = new Date(today);
+          endDate.setDate(today.getDate() + 57);
+          break;
+          
+        default:
+          console.warn(`Unbekannter zeitraum: ${zeitraum}, verwende 'all'`);
+          endDate = null;
+      }
     }
 
-    console.log(`  Filtere Matches zwischen ${startDate.toISOString().split('T')[0]} und ${endDate.toISOString().split('T')[0]}`);
+    if (endDate) {
+      console.log(`  Filtere Matches zwischen ${startDate.toISOString().split('T')[0]} und ${endDate.toISOString().split('T')[0]} (nur zukünftige Spiele)`);
+    } else {
+      console.log(`  Filtere Matches ab ${startDate.toISOString().split('T')[0]} (nur zukünftige Spiele, kein Enddatum)`);
+    }
 
     return matches.filter(match => {
       if (!match.kickoffDate) {
@@ -384,7 +388,17 @@ class TeamSLService {
       const matchDate = new Date(parseInt(match.kickoffDate));
       const matchDateOnly = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
       
-      return matchDateOnly >= startDate && matchDateOnly <= endDate;
+      // Immer nur zukünftige Spiele (ab heute)
+      if (matchDateOnly < startDate) {
+        return false;
+      }
+      
+      // Wenn Enddatum gesetzt ist, auch das prüfen
+      if (endDate && matchDateOnly > endDate) {
+        return false;
+      }
+      
+      return true;
     });
   }
 
@@ -399,10 +413,12 @@ class TeamSLService {
           spielplanId: game1.spielplanId,
           spieldatum: game1.spieldatum,
           heimMannschaftLiga: {
-            mannschaftName: game1.heimMannschaftLiga?.mannschaftName || 'N/A'
+            mannschaftName: game1.heimMannschaftLiga?.mannschaftName || 'N/A',
+            hideLink: game1.heimMannschaftLiga?.hideLink || false
           },
           gastMannschaftLiga: {
-            mannschaftName: game1.gastMannschaftLiga?.mannschaftName || 'N/A'
+            mannschaftName: game1.gastMannschaftLiga?.mannschaftName || 'N/A',
+            hideLink: game1.gastMannschaftLiga?.hideLink || false
           },
           liga: {
             liganame: game1.liga?.liganame || 'N/A',
