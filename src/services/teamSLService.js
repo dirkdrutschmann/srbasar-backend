@@ -134,161 +134,119 @@ class TeamSLService {
 
   async fetchAllOpenGames(pageSize = 100, zeitraum = "all") {
     try {
-      if (!this.client) {
-        throw new Error("Nicht eingeloggt. Bitte zuerst login() aufrufen.");
-      }
+      console.log("Starte neue Abfrage-Strategie mit matchId-basierter Methode...");
 
-      console.log("Starte adaptive parallele Abfrage aller offenen Spiele...");
-      // 1. Erste Seite abrufen um die Gesamtanzahl zu erhalten (nur 10 Spiele)
-      console.log("Lade erste Seite um Gesamtanzahl zu ermitteln...");
-      const firstPage = await this.fetchOpenGames(0, 10, zeitraum);
-      const totalGames = firstPage.total || 0;
-      
-      console.log(`API meldet ${totalGames} Spiele insgesamt`);
-      if (totalGames === 0) {
-        return {
-          total: 0,
-          results: [],
-          pages: 0,
-          pageSize: pageSize,
-          actualCount: 0,
-          complete: true,
-          apiReportedTotal: 0
-        };
-      }
+      // 1. Alle Ligen abrufen (alte Methode)
+      console.log("Lade alle Ligen...");
+      const ligen = await this.fetchAllLigen();
+      console.log(`${ligen.length} Ligen gefunden`);
 
-      const allGames = new Set();
-      const gameIds = new Set();
-      const duplicateGames = new Map(); // Speichert Duplikate mit Details
+      // 2. Alle Matches aus allen Ligen abrufen und nach zeitraum filtern
+      console.log(`Lade alle Matches aus allen Ligen und filtere nach zeitraum: ${zeitraum}...`);
+      const allMatches = [];
       
-      console.log("Starte vollständige Abfrage aller Spiele...");
-      // Berechne wie viele Seiten wir brauchen (immer 100 pro Seite)
-      const estimatedPages = Math.ceil(totalGames / pageSize);
-      const pagesToFetch = Math.min(estimatedPages, 50); // Maximal 50 Seiten
-        
-      console.log(`Lade ${pagesToFetch} Seiten parallel (pageSize=${pageSize}) - beginne bei Seite 1...`);
-      
-      // 10 Seiten parallel abrufen
-      const batchSize = 10;
-      let pagesLoaded = 0;
-      
-      for (let batchStart = 1; batchStart <= pagesToFetch; batchStart += batchSize) {
-        const batchEnd = Math.min(batchStart + batchSize - 1, pagesToFetch);
-        const batch = [];
-        
-        // Batch von Seiten vorbereiten
-        for (let page = batchStart; page <= batchEnd; page++) {
-          batch.push(this.fetchOpenGames(page, pageSize, zeitraum));
-        }
-        
-        console.log(`Lade Batch: Seiten ${batchStart}-${batchEnd}...`);
-        
+      for (const liga of ligen) {
         try {
-          const batchResults = await Promise.all(batch);
+          console.log(`Lade Matches für Liga ${liga.ligaId}: ${liga.liganame}`);
+          const matches = await this.fetchMatchesForLiga(liga);
           
-          let newGamesInBatch = 0;
-          batchResults.forEach((pageData, index) => {
-            const pageNumber = batchStart + index;
-            if (pageData.results && pageData.results.length > 0) {
-              let newGamesOnPage = 0;
-              let duplicatesOnPage = 0;
-              
-              pageData.results.forEach((game) => {
-                const gameId = game.sp.spielplanId;
-                if (!gameIds.has(gameId)) {
-                  allGames.add(JSON.stringify(game));
-                  gameIds.add(gameId);
-                  newGamesOnPage++;
-                  newGamesInBatch++;
-                } else {
-                  duplicatesOnPage++;
-                  // Duplikat-Details sammeln
-                  if (!duplicateGames.has(gameId)) {
-                    duplicateGames.set(gameId, {
-                      spielplanId: gameId,
-                      heimMannschaft: game.sp.heimMannschaftLiga?.mannschaftName || 'N/A',
-                      gastMannschaft: game.sp.gastMannschaftLiga?.mannschaftName || 'N/A',
-                      spieldatum: game.sp.spieldatum,
-                      pages: []
-                    });
-                  }
-                  duplicateGames.get(gameId).pages.push(pageNumber);
-                }
-              });
-              
-              console.log(`  Seite ${pageNumber}: ${pageData.results.length} Spiele, ${newGamesOnPage} neue, ${duplicatesOnPage} Duplikate`);
-              pagesLoaded++;
-            } else {
-              console.log(`  Seite ${pageNumber}: Keine Spiele gefunden`);
+          // Filtere Matches nach zeitraum basierend auf kickoffDate
+          const filteredMatches = this.filterMatchesByZeitraum(matches, zeitraum);
+          allMatches.push(...filteredMatches);
+          
+          console.log(`  ${matches.length} Matches gefunden, ${filteredMatches.length} nach Zeitraum-Filter`);
+        } catch (error) {
+          console.error(`Fehler beim Laden der Matches für Liga ${liga.ligaId}:`, error.message);
+        }
+      }
+
+      console.log(`Gesamt ${allMatches.length} Matches gefunden`);
+
+      // 3. Mit neuem TeamSL Service einloggen
+      console.log("Logge mit neuem TeamSL Service ein...");
+      const username = process.env.TEAM_SL_USERNAME;
+      const password = process.env.TEAM_SL_PASSWORD;
+
+      if (!username || !password) {
+        throw new Error("TEAM_SL_USERNAME und TEAM_SL_PASSWORD müssen in den Umgebungsvariablen gesetzt sein");
+      }
+
+      await this.login(username, password);
+      console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
+
+      // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
+      const BATCH_SIZE = 100; // Konfigurierbare Batch-Größe
+      const PAUSE_PER_REQUEST = 1; // Wartezeit pro Request in ms
+      console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
+      const detailedGames = [];
+      const duplicateGames = new Map();
+
+      const batchSize = BATCH_SIZE;
+      const totalBatches = Math.ceil(allMatches.length / batchSize);
+
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const batchStart = batchIndex * batchSize;
+        const batchEnd = Math.min(batchStart + batchSize, allMatches.length);
+        const batch = allMatches.slice(batchStart, batchEnd);
+
+        console.log(`Verarbeite Batch ${batchIndex + 1}/${totalBatches}: Matches ${batchStart + 1}-${batchEnd}`);
+
+        // Batch parallel verarbeiten
+        const batchPromises = batch.map(async (match, index) => {
+          const globalIndex = batchStart + index;
+          try {
+            console.log(`  Lade Details für Match ${globalIndex + 1}/${allMatches.length}: ${match.matchId}`);
+            
+            const gameDetails = await this.fetchGameDetails(match.matchId);
+            if (gameDetails) {
+              // Konvertiere zu dem Format, das die alte API erwartet
+              const convertedGame = this.convertGameDetailsToApiFormat(gameDetails);
+              return { success: true, game: convertedGame, matchId: match.matchId };
+            }
+            return { success: false, matchId: match.matchId, error: 'Keine Details erhalten' };
+          } catch (error) {
+            console.error(`  Fehler beim Laden der Details für Match ${match.matchId}:`, error.message);
+            return { success: false, matchId: match.matchId, error: error.message };
+          }
+        });
+
+        try {
+          const batchResults = await Promise.all(batchPromises);
+          
+          let successCount = 0;
+          batchResults.forEach(result => {
+            if (result.success) {
+              detailedGames.push(result.game);
+              successCount++;
             }
           });
-          
-          const totalAfterBatch = allGames.size;
-          const expectedAfterBatch = Math.min((batchEnd) * pageSize, totalGames);
-          console.log(`Batch abgeschlossen: ${newGamesInBatch} neue Spiele, ${totalAfterBatch}/${totalGames} gesamt (Seiten 1-${batchEnd})`);
-          console.log(`Erwartet nach ${batchEnd} Seiten: ${expectedAfterBatch}, tatsächlich: ${totalAfterBatch}`);
-          
-          // Prüfe ob wir alle Spiele haben
-          if (allGames.size >= totalGames) {
-            console.log(`✅ Alle ${totalGames} Spiele gefunden!`);
-            break;
-          }
-          
+
+          console.log(`  Batch ${batchIndex + 1} abgeschlossen: ${successCount}/${batch.length} erfolgreich`);
         } catch (error) {
-          console.error(`Fehler in Batch ${Math.floor(batchStart / batchSize) + 1}:`, error.message);
+          console.error(`  Fehler in Batch ${batchIndex + 1}:`, error.message);
         }
-        
-        // Kleine Pause zwischen Batches
-        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        // Pause zwischen Batches (konfigurierbare Wartezeit)
+        if (batchIndex < totalBatches - 1) {
+          const pauseTime = BATCH_SIZE * PAUSE_PER_REQUEST;
+          console.log(`  Warte ${pauseTime}ms vor nächstem Batch...`);
+          await new Promise(resolve => setTimeout(resolve, pauseTime));
+        }
       }
-      
-      console.log(`Abfrage abgeschlossen: ${allGames.size}/${totalGames} Spiele (${pagesLoaded} Seiten geladen)`);
-      // Set zurück zu Array konvertieren
-      const results = Array.from(allGames).map((gameStr) => JSON.parse(gameStr));
+
       console.log(`\n=== Abfrage abgeschlossen ===`);
-      console.log(`Geladene Spiele: ${results.length}/${totalGames}`);
-      console.log(`Einzigartige IDs: ${gameIds.size}`);
-      console.log(`Seiten geladen: ${pagesLoaded}`);
-      // Duplikat-Liste ausgeben
-      if (duplicateGames.size > 0) {
-        console.log(`\n📋 Duplikate gefunden (${duplicateGames.size} Spiele):`);
-        console.log(`═══════════════════════════════════════════════════════════════`);
-        
-        duplicateGames.forEach((duplicate, gameId) => {
-          const pagesList = duplicate.pages.sort((a, b) => a - b).join(', ');
-          console.log(`Spiel ${gameId}:`);
-          console.log(`  Teams: ${duplicate.heimMannschaft} vs ${duplicate.gastMannschaft}`);
-          console.log(`  Datum: ${duplicate.spieldatum}`);
-          console.log(`  Gefunden auf Seiten: ${pagesList}`);
-          console.log(`  Anzahl Duplikate: ${duplicate.pages.length}`);
-          console.log(`───────────────────────────────────────────────────────────────`);
-        });
-        
-        console.log(`\n📊 Duplikat-Statistik:`);
-        console.log(`- Gesamte Duplikate: ${duplicateGames.size} Spiele`);
-        const totalDuplicates = Array.from(duplicateGames.values()).reduce((sum, dup) => sum + dup.pages.length, 0);
-        console.log(`- Gesamte Duplikat-Einträge: ${totalDuplicates}`);
-        console.log(`- Durchschnittliche Duplikate pro Spiel: ${(totalDuplicates / duplicateGames.size).toFixed(2)}`);
-      } else {
-        console.log(`\n✅ Keine Duplikate gefunden`);
-      }
-      if (results.length !== totalGames) {
-        console.warn(`\n⚠️  Nicht alle Spiele abgerufen: ${results.length}/${totalGames}`);
-        console.warn(`Mögliche Ursachen:`);
-        console.warn(`- API liefert weniger Spiele als gemeldet`);
-        console.warn(`- Duplikate in der API`);
-        console.warn(`- Seitenüberschneidungen`);
-      } else {
-        console.log(`\n✅ Alle ${totalGames} Spiele erfolgreich abgerufen`);
-      }
+      console.log(`Geladene Spiele: ${detailedGames.length}/${allMatches.length}`);
+      console.log(`Einzigartige IDs: ${detailedGames.length}`);
+
       return {
-        total: results.length,
-        results: results,
-        pages: pagesLoaded,
-        pageSize: pageSize,
-        actualCount: results.length,
-        complete: results.length >= totalGames,
-        apiReportedTotal: totalGames
+        total: detailedGames.length,
+        results: detailedGames,
+        pages: 1,
+        pageSize: detailedGames.length,
+        actualCount: detailedGames.length,
+        complete: true,
+        apiReportedTotal: allMatches.length,
+        duplicateGames: duplicateGames
       };
     } catch (error) {
       console.error("Fehler beim Abrufen aller offenen Spiele:", error.message);
