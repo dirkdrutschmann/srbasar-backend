@@ -175,8 +175,8 @@ class TeamSLService {
       console.log("Erfolgreich mit neuem TeamSL Service eingeloggt");
 
       // 4. Für jede matchId detaillierte Daten abrufen (in Batches)
-      const BATCH_SIZE = 200; // Konfigurierbare Batch-Größe
-      const PAUSE_PER_REQUEST = 0; // Wartezeit pro Request in ms
+      const BATCH_SIZE = 100; // Konfigurierbare Batch-Größe
+      const PAUSE_PER_REQUEST = 1; // Wartezeit pro Request in ms
       console.log(`Lade detaillierte Daten für ${allMatches.length} Matches in Batches von ${BATCH_SIZE}...`);
       const detailedGames = [];
       const duplicateGames = new Map();
@@ -389,6 +389,15 @@ class TeamSLService {
     });
   }
 
+  shouldBeOffenAngeboten(srData) {
+    if (srData?.lizenzNr) {
+      return false;
+    }
+    
+    // Ansonsten den ursprünglichen offenAngeboten Wert verwenden
+    return srData?.offenAngeboten || false;
+  }
+
   convertGameDetailsToApiFormat(gameDetails) {
     try {
       const game1 = gameDetails.game1;
@@ -427,9 +436,9 @@ class TeamSLService {
           sr2Verein: game1.sr2Verein,
           sr3Verein: game1.sr3Verein
         },
-        sr1OffenAngeboten: (gameDetails.sr1?.offenAngeboten || false) && !gameDetails.sr1?.lizenzNr,
-        sr2OffenAngeboten: (gameDetails.sr2?.offenAngeboten || false) && !gameDetails.sr2?.lizenzNr,
-        sr3OffenAngeboten: (gameDetails.sr3?.offenAngeboten || false) && !gameDetails.sr3?.lizenzNr,
+        sr1OffenAngeboten: this.shouldBeOffenAngeboten(game1, gameDetails.sr1),
+        sr2OffenAngeboten: this.shouldBeOffenAngeboten(game1, gameDetails.sr2),
+        sr3OffenAngeboten: this.shouldBeOffenAngeboten(game1, gameDetails.sr3),
         sr1: gameDetails.sr1?.spielleitung ? {
           spielleitung: gameDetails.sr1.spielleitung,
           lizenzNr: gameDetails.sr1.lizenzNr,
@@ -632,12 +641,7 @@ class TeamSLService {
       for (const gameData of gamesData) {
         try {
           // Prüfe, ob das Spiel offen angeboten wird
-          // Wenn offenAngeboten true ist, aber lizenzNr gesetzt ist, dann ist es nicht mehr offen angeboten
-          const sr1OffenAngeboten = gameData.sr1OffenAngeboten && !gameData.sr1?.lizenzNr;
-          const sr2OffenAngeboten = gameData.sr2OffenAngeboten && !gameData.sr2?.lizenzNr;
-          const sr3OffenAngeboten = gameData.sr3OffenAngeboten && !gameData.sr3?.lizenzNr;
-          
-          const isOffered = sr1OffenAngeboten || sr2OffenAngeboten || sr3OffenAngeboten;
+          const isOffered = gameData.sr1OffenAngeboten || gameData.sr2OffenAngeboten || gameData.sr3OffenAngeboten;
           
           if (!isOffered) {
             // Spiel wird nicht offen angeboten - aus DB entfernen
