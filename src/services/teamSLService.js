@@ -4,6 +4,9 @@ const { Op } = require("sequelize");
 const { fieldFn } = require("../utils/licenseUtils");
 const path = require('path');
 
+// Konfigurierbare Verbands-ID (Fallback auf Standardwert 3)
+const VERBAND_ID = parseInt(process.env.TEAM_SL_VERBAND_ID || "3", 10);
+
 class TeamSLService {
   constructor() {
     this.baseURL = "https://www.basketball-bund.net";
@@ -268,7 +271,7 @@ class TeamSLService {
         sortBy: 0,
         spielklasseIds: [],
         token: "",
-        verbandIds: [3],
+        verbandIds: [VERBAND_ID],
         startAtIndex: index,
       });
 

@@ -10,7 +10,13 @@ class MailerService {
 
   createTransporter() {
     // Konfiguriere den Transporter basierend auf Umgebungsvariablen
-    if (!process.env.UNIX_SENDMAIL) {
+    // Interpretiere UNIX_SENDMAIL als echtes Boolean
+    const useUnixSendmail =
+      typeof process.env.UNIX_SENDMAIL === 'string'
+        ? ['true', '1', 'yes'].includes(process.env.UNIX_SENDMAIL.toLowerCase())
+        : false;
+
+    if (!useUnixSendmail) {
       // SMTP-Konfiguration
       return nodemailer.createTransport({
         host: process.env.MAILER_HOST,
