@@ -3,6 +3,8 @@ const { loadConfig } = require('./config');
 const { parseWorkbook } = require('./parser');
 const repository = require('./repository');
 
+const DEFAULT_REFRESH_MS = 5 * 60 * 1000;
+
 class BallersClubService {
   constructor({ config = loadConfig, store = repository, fetch = axios.get, parse = parseWorkbook } = {}) {
     this.config = config;
@@ -51,11 +53,15 @@ class BallersClubService {
   start() {
     if (this.timer) return;
     let config;
-    try { config = this.config(); } catch { console.warn('Ballers Club: ungültige Konfiguration; Modul deaktiviert.'); return; }
-    if (!config.enabled) return;
+    try {
+      config = this.config();
+    } catch {
+      console.warn('Ballers Club: ungültige Konfiguration; nächster Importversuch folgt.');
+    }
+    if (config && !config.enabled) return;
     const run = () => this.refresh().catch(() => console.warn('Ballers Club: Import derzeit nicht verfügbar.'));
     run();
-    this.timer = setInterval(run, config.refreshMs);
+    this.timer = setInterval(run, config?.refreshMs || DEFAULT_REFRESH_MS);
     this.timer.unref();
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "srbasar-backend",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Express.js Backend mit Sequelize und MariaDB",
   "main": "src/app.js",
   "scripts": {
@@ -35,8 +35,8 @@
     "morgan": "^1.10.0",
     "mysql2": "^3.14.3",
     "node-cron": "^4.2.1",
-    "nodemailer": "^9.1.1",
-    "pm2": "^5.3.0",
+    "nodemailer": "^10.3.1",
+    "pm2": "^7.1.2",
     "sequelize": "^6.35.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
@@ -47,7 +47,9 @@
     "sequelize-cli": "^6.6.2"
   },
   "overrides": {
-    "pm2": { "js-yaml": "^4.3.2" }
+    "pm2": {
+      "js-yaml": "^4.3.2"
+    }
   },
   "keywords": [
     "express",

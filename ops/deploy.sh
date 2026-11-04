@@ -25,10 +25,47 @@ RELEASES_DIR="$APP_ROOT/releases"
 STABLE_SCRIPT="$APP_ROOT/src/app.js"
 STAGING_DIR="$RELEASES_DIR/.staging"
 RELEASE_DIR="$RELEASES_DIR/$VERSION"
+PM2_USER="${SRBASAR_PM2_USER:-web3}"
+PM2_HOME_DIR="${SRBASAR_PM2_HOME:-/var/lib/pm2/web3/.pm2}"
+PM2_BIN="${SRBASAR_PM2_BIN:-pm2}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "The backend deployment must run as root on the ISPConfig host." >&2
   exit 77
+fi
+
+if ! id "$PM2_USER" >/dev/null 2>&1; then
+  echo "PM2 runtime user does not exist: $PM2_USER" >&2
+  exit 80
+fi
+
+if ! command -v runuser >/dev/null 2>&1; then
+  echo "Missing runuser command required for the PM2 runtime user." >&2
+  exit 81
+fi
+
+NODE_BINARY="${SRBASAR_NODE_BIN:-$(readlink -f "$(command -v node)")}"
+if [[ -z "$NODE_BINARY" || ! -x "$NODE_BINARY" ]]; then
+  echo "Node.js binary is not executable: $NODE_BINARY" >&2
+  exit 82
+fi
+PM2_PATH="${SRBASAR_PM2_PATH:-$(dirname "$NODE_BINARY"):/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin}"
+PM2_GROUP="${SRBASAR_PM2_GROUP:-$(id -gn "$PM2_USER")}"
+
+run_as_pm2_user() {
+  runuser -u "$PM2_USER" -- env \
+    PM2_HOME="$PM2_HOME_DIR" \
+    PATH="$PM2_PATH" \
+    "$@"
+}
+
+pm2_as_runtime() {
+  run_as_pm2_user "$PM2_BIN" "$@"
+}
+
+if ! run_as_pm2_user "$PM2_BIN" --version >/dev/null 2>&1; then
+  echo "PM2 is not available for runtime user $PM2_USER." >&2
+  exit 83
 fi
 
 if [[ ! -f "$SHARED_DIR/.env" ]]; then
@@ -46,6 +83,15 @@ if [[ -e "$RELEASE_DIR" || -L "$RELEASE_DIR" ]]; then
 fi
 
 mkdir -p "$SHARED_DIR/logs" "$RELEASES_DIR" "$STAGING_DIR"
+
+if [[ -f "$SHARED_DIR/.env.ballersclub" ]]; then
+  chown "root:$PM2_GROUP" "$SHARED_DIR/.env.ballersclub"
+  chmod 0640 "$SHARED_DIR/.env.ballersclub"
+  if ! run_as_pm2_user test -r "$SHARED_DIR/.env.ballersclub"; then
+    echo "Ballers Club ENV is not readable by PM2 runtime user $PM2_USER." >&2
+    exit 84
+  fi
+fi
 
 previous_release="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
 previous_script_target="$(readlink "$STABLE_SCRIPT" 2>/dev/null || true)"
@@ -81,7 +127,7 @@ node --check src/app.js
 node ops/backupDatabase.js "$SHARED_DIR/backups" "$VERSION"
 node ops/migrate.js
 node ops/backfillLocations.js
-node ops/importBallersclub.js
+run_as_pm2_user "$NODE_BINARY" ops/importBallersclub.js
 node ops/checkBallersCatalog.js
 popd >/dev/null
 
@@ -113,14 +159,15 @@ fi
 reload_backend() {
   # PM2 gleicht die Instanzzahl bei einem Reload nicht automatisch ab.
   local instance_count
-  instance_count="$(pm2 jlist | node -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const apps = JSON.parse(input); console.log(apps.filter(app => app.name === "srbasar-backend").length); });')"
+  instance_count="$(pm2_as_runtime jlist | "$NODE_BINARY" -e 'let input = ""; process.stdin.on("data", chunk => input += chunk).on("end", () => { const apps = JSON.parse(input); console.log(apps.filter(app => app.name === "srbasar-backend").length); });')"
   if [[ "$instance_count" -gt 0 && "$instance_count" -ne 2 ]]; then
-    pm2 scale srbasar-backend 2
+    pm2_as_runtime scale srbasar-backend 2
   fi
 
-  SRBASAR_BACKEND_ROOT="$APP_ROOT" \
+  run_as_pm2_user env \
+    SRBASAR_BACKEND_ROOT="$APP_ROOT" \
     SRBASAR_BACKEND_CURRENT="$CURRENT_LINK" \
-    pm2 startOrReload \
+    "$PM2_BIN" startOrReload \
     "$CURRENT_LINK/ecosystem.config.js" \
     --only srbasar-backend \
     --update-env
@@ -158,5 +205,5 @@ if ! reload_backend || ! health_check; then
   exit 83
 fi
 
-pm2 save
+pm2_as_runtime save
 echo "Backend release $VERSION is active on port $port."
