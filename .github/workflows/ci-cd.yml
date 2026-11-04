@@ -20,6 +20,9 @@ env:
   DEPLOY_USER: root
   BACKEND_ROOT: /var/www/clients/client2/web3/private
   BACKEND_INCOMING: /var/www/clients/client2/web3/private/.srbasar/incoming/backend
+  DEPLOY_PM2_USER: web3
+  DEPLOY_PM2_HOME: /var/lib/pm2/web3/.pm2
+  DEPLOY_NODE_PATH: /opt/node-v24.15.0/bin:/usr/local/bin:/usr/bin:/bin
 
 jobs:
   quality:
@@ -93,7 +96,7 @@ jobs:
           set -euo pipefail
           ssh -p "$DEPLOY_PORT" -i "$HOME/.ssh/id_ed25519" \
             -o IdentitiesOnly=yes -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "cd '$BACKEND_ROOT/current' && node -" < ops/disableDeployWatch.js
+            "cd '$BACKEND_ROOT/current' && runuser -u '$DEPLOY_PM2_USER' -- env PM2_HOME='$DEPLOY_PM2_HOME' PATH='$DEPLOY_NODE_PATH' node -" < ops/disableDeployWatch.js
 
       - name: Upload source archive
         shell: bash
@@ -120,4 +123,4 @@ jobs:
           staging="$BACKEND_ROOT/.incoming-${VERSION}-$$"
           ssh -p "$DEPLOY_PORT" -i "$HOME/.ssh/id_ed25519" \
             -o IdentitiesOnly=yes -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" \
-            "set -euo pipefail; mkdir -p '$staging'; tar --extract --gzip --file '$archive' --directory '$staging' --strip-components=1 --no-same-owner --no-same-permissions; bash '$staging/ops/deploy.sh' '$VERSION' '$staging'; rm -rf -- '$staging' '$archive'"
+            "set -euo pipefail; mkdir -p '$staging'; tar --extract --gzip --file '$archive' --directory '$staging' --strip-components=1 --no-same-owner --no-same-permissions; SRBASAR_PM2_USER='$DEPLOY_PM2_USER' SRBASAR_PM2_HOME='$DEPLOY_PM2_HOME' SRBASAR_NODE_BIN='/opt/node-v24.15.0/bin/node' bash '$staging/ops/deploy.sh' '$VERSION' '$staging'; rm -rf -- '$staging' '$archive'"

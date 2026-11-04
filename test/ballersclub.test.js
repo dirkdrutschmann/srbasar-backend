@@ -102,6 +102,32 @@ test('failed refresh preserves the successful snapshot and never returns applica
   expect((await service.publicState(new Date('2026-09-11T17:16:00Z'))).available).toBe(false);
 });
 
+test('keeps retrying after a transient startup configuration error', async () => {
+  jest.useFakeTimers();
+  const store = { getSync: jest.fn(), replaceSnapshot: jest.fn(), recordFailure: jest.fn() };
+  const config = jest.fn()
+    .mockImplementationOnce(() => { throw new Error('EACCES'); })
+    .mockReturnValue({
+      enabled: true,
+      sourceKey: 'key',
+      sheet: { exportUrl: 'https://docs.google.com/x' },
+      refreshMs: 300000,
+      maxAgeMs: 900000,
+      contact: { name: 'Kontakt' }
+    });
+  const service = new BallersClubService({ config, store, fetch: jest.fn().mockRejectedValue(new Error('network')) });
+
+  try {
+    service.start();
+    expect(service.timer).not.toBeNull();
+    await jest.advanceTimersByTimeAsync(300000);
+    expect(config.mock.calls.length).toBeGreaterThanOrEqual(3);
+  } finally {
+    await service.stop();
+    jest.useRealTimers();
+  }
+});
+
 test('public Ballers entries have no fabricated TeamSL ID or minimum licence', () => {
   const data = toBallersGame({ id: 'abc', startsAt: 1, endsAt: 2, tournamentType: 'U12 Tour', locationRaw: 'Halle', freeSpots: 1, totalSpots: 3 });
   expect(data.id).toBe('ballers-club:abc');

@@ -9,14 +9,18 @@ noch versendet es Bewerbungen.
 
 `.env.ballersclub.example` als Vorlage verwenden. Die echte `.env.ballersclub`
 bleibt außerhalb von Git. Auf dem bestehenden Server liegt sie unter
-`/var/www/clients/client2/web3/private/shared/.env.ballersclub` (Modus `0600`).
-`ops/deploy.sh` verlinkt sie in jedes Release. Die allgemeine `.env` bleibt unverändert.
+`/var/www/clients/client2/web3/private/shared/.env.ballersclub` (Modus `0640`,
+Eigentümer `root`, Gruppe des PM2-Laufzeitkontos; auf dem bestehenden Server
+`client2`). `ops/deploy.sh` stellt diese Leserechte vor jedem Import sicher und
+verlinkt die Datei in jedes Release. Die allgemeine `.env` bleibt unverändert.
 
 Variablen: `BALLERSCLUB_ENABLED`, `BALLERSCLUB_SHEET_URL`, `BALLERSCLUB_PHONE`
 (internationale Ziffern, ohne Plus), `BALLERSCLUB_EMAIL`, `BALLERSCLUB_CONTACT_NAME`,
 `BALLERSCLUB_DAYS_AHEAD` (21). Optional `BALLERSCLUB_SHEET_NAME` bei mehreren Blättern
 und `BALLERSCLUB_ENV_FILE` für einen anderen Dateipfad. Prozessvariablen haben Vorrang.
-Die Tabelle muss anonym als XLSX exportierbar sein. Zugriffsrechte werden nicht verändert.
+Die Tabelle muss anonym als XLSX exportierbar sein. Der Import und der PM2-Prozess
+laufen unter demselben Laufzeitkonto, damit ein root-exklusiver Deploy-Import keine
+falsche Sicherheit über die Lesbarkeit der Produktions-ENV erzeugt.
 
 Der Import läuft alle fünf Minuten ausschließlich im PM2-Worker 0. Jeder erfolgreiche
 Import ersetzt den Quellen-Snapshot in einer Transaktion. Bei Fehlern bleibt der letzte
